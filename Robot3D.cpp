@@ -10,6 +10,7 @@
 #include <vector>
 #include "VECTOR3D.h"
 #include "QuadMesh.h"
+#define M_PI 3.14159265358979323846
 
 const int vWidth = 650;    // Viewport width in pixels
 const int vHeight = 500;    // Viewport height in pixels
@@ -126,6 +127,17 @@ typedef struct BoundingBox {
 	VECTOR3D max;
 } BBox;
 
+struct Robot {
+	float xOffset;
+	float zOffset;
+	float speed;
+	float direction;
+};
+
+float spacing = 20.0f;
+const int numRobots = 3;
+Robot robots[numRobots];
+
 // Default Mesh Size
 int meshSize = 16;
 
@@ -146,6 +158,7 @@ void drawLeftArm();
 void drawRightArm();
 void moveRobots(int value);
 void stepAnimation(int value);
+void initializeRobots();
 
 int main(int argc, char** argv)
 {
@@ -155,6 +168,9 @@ int main(int argc, char** argv)
 	glutInitWindowSize(vWidth, vHeight);
 	glutInitWindowPosition(200, 30);
 	glutCreateWindow("3D Hierarchical Example");
+
+	// Initialize robots
+	initializeRobots();
 
 	// Initialize GL
 	initOpenGL(vWidth, vHeight);
@@ -178,6 +194,14 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+void initializeRobots() {
+	for (int i = 0; i < numRobots; i++) {
+		robots[i].xOffset = (i - (numRobots - 1) * 0.5f) * 20.0f; // Spaced along x-axis
+		robots[i].zOffset = 0.0f; // Start at the same z-axis position
+		robots[i].speed = 0.1f + 0.05f * i; // Slightly different speeds
+		robots[i].direction = 0.0f; // All initially walking straight
+	}
+}
 
 // Set up OpenGL. For viewport and projection setup see reshape().
 void initOpenGL(int w, int h)
@@ -246,15 +270,10 @@ void display(void)
 		break;
 	}
 
-	// Draw multiple robots
-	int numRobots = 3;
-	float spacing = 20.0f;
-
 	for (int i = 0; i < numRobots; i++) {
 		glPushMatrix();
 		// Position each robot along the x-axis and add movement along the z-axis
-		float offsetX = (i - (numRobots - 1) * 0.5f) * spacing;
-		glTranslatef(offsetX, 0.0, robotZOffset);
+		glTranslatef(robots[i].xOffset, 0.0, robots[i].zOffset);
 		drawRobot();
 		glPopMatrix();
 	}
@@ -890,22 +909,28 @@ void reshape(int w, int h)
 	gluLookAt(0.0, 6.0, 35.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 }
 
-
 void moveRobots(int value) {
-	if (movingForward) {
-		robotZOffset += 0.2f; // Move forward
-		if (robotZOffset > 50.0f) { // Example boundary
-			movingForward = false; // Reverse direction
+	for (int i = 0; i < numRobots; i++) {
+		float rad = robots[i].direction * (M_PI / 180.0f);
+
+		robots[i].zOffset += robots[i].speed * cos(rad);
+		robots[i].xOffset += robots[i].speed * sin(rad);
+
+		// Change direction randomly
+		if (rand() % 100 < 5) { // 5% chance to change direction
+			robots[i].direction += (rand() % 90 - 45); // Turn randomly between -45 to +45 degrees
+		}
+
+		if (robots[i].zOffset > 50.0f || robots[i].zOffset < -50.0f) {
+			robots[i].direction += 180.0f; // Reverse direction
+		}
+		if (robots[i].xOffset > 50.0f || robots[i].xOffset < -50.0f) {
+			robots[i].direction += 180.0f; // Reverse direction
 		}
 	}
-	else {
-		robotZOffset -= 0.2f; // Move backward
-		if (robotZOffset < -50.0f) { // Example boundary
-			movingForward = true; // Reverse direction
-		}
-	}
-	glutPostRedisplay(); // Trigger redraw
-	glutTimerFunc(16, moveRobots, 0); // Schedule next movement
+
+	glutPostRedisplay();
+	glutTimerFunc(16, moveRobots, 0);
 }
 
 bool stop = false;
@@ -913,47 +938,49 @@ bool stop = false;
 void stepAnimation(int value)
 {
 	if (walking) {
-		float angleStep = 1.0f;
-		float positionStep = 0.05f;
+		for (int i = 0; i < numRobots; i++) {
+			float angleStep = 1.0f + i * 0.2f;
+			float positionStep = 0.05f;
 
-		if (walkingForward) {
-			if (hipAngleLeft < 50.0f) {
-				hipAngleLeft += angleStep;
-				kneeAngleLeft -= angleStep * 0.75f;
-				ankleAngleLeft += angleStep * 0.5f;
-				lowerLegAngleLeft += angleStep;
+			if (walkingForward) {
+				if (hipAngleLeft < 50.0f) {
+					hipAngleLeft += angleStep;
+					kneeAngleLeft -= angleStep * 0.75f;
+					ankleAngleLeft += angleStep * 0.5f;
+					lowerLegAngleLeft += angleStep;
+				}
+
+				if (hipAngleRight > -50.0f) {
+					hipAngleRight -= angleStep;
+					kneeAngleRight += angleStep * 0.75f;
+					ankleAngleRight -= angleStep * 0.5f;
+					lowerLegAngleRight -= angleStep;
+				}
+
+				if (hipAngleLeft >= 50.0f && hipAngleRight <= -50.0f) {
+					walkingForward = false;
+				}
+
+				robotZOffset += positionStep;
 			}
+			else {
+				if (hipAngleLeft > 0.0f) {
+					hipAngleLeft -= angleStep;
+					kneeAngleLeft += angleStep * 0.75f;
+					ankleAngleLeft -= angleStep * 0.5f;
+					lowerLegAngleLeft -= angleStep;
+				}
 
-			if (hipAngleRight > -50.0f) {
-				hipAngleRight -= angleStep;
-				kneeAngleRight += angleStep * 0.75f;
-				ankleAngleRight -= angleStep * 0.5f;
-				lowerLegAngleRight -= angleStep;
-			}
+				if (hipAngleRight < 0.0f) {
+					hipAngleRight += angleStep;
+					kneeAngleRight -= angleStep * 0.75f;
+					ankleAngleRight += angleStep * 0.5f;
+					lowerLegAngleRight += angleStep;
+				}
 
-			if (hipAngleLeft >= 50.0f && hipAngleRight <= -50.0f) {
-				walkingForward = false;
-			}
-
-			robotZOffset += positionStep;
-		}
-		else {
-			if (hipAngleLeft > 0.0f) {
-				hipAngleLeft -= angleStep;
-				kneeAngleLeft += angleStep * 0.75f;
-				ankleAngleLeft -= angleStep * 0.5f;
-				lowerLegAngleLeft -= angleStep;
-			}
-
-			if (hipAngleRight < 0.0f) {
-				hipAngleRight += angleStep;
-				kneeAngleRight -= angleStep * 0.75f;
-				ankleAngleRight += angleStep * 0.5f;
-				lowerLegAngleRight += angleStep;
-			}
-
-			if (hipAngleLeft <= 0.0f && hipAngleRight >= 0.0f) {
-				walkingForward = true;
+				if (hipAngleLeft <= 0.0f && hipAngleRight >= 0.0f) {
+					walkingForward = true;
+				}
 			}
 		}
 
