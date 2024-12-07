@@ -16,7 +16,6 @@ const int vHeight = 500;    // Viewport height in pixels
 
 // Note how everything depends on robot body dimensions so that can scale entire robot proportionately
 // just by changing robot body scale
-float robotZPosition = 0.0f;
 float robotBodyWidth = 12.0;
 float robotBodyLength = 10.0;
 float robotBodyDepth = 8.0;
@@ -60,6 +59,11 @@ float neckAngle = 0.0f;   // Neck rotation
 // Control arm rotation
 float shoulderAngle = -40.0;
 float gunAngle = -25.0;
+
+// Variable to control the position offset along the direction of movement
+float robotZOffset = 0.0f; // Movement offset along the z-axis
+bool movingForward = true; // Flag to control movement direction
+
 
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
@@ -140,7 +144,8 @@ void drawHead();
 void drawLowerBody();
 void drawLeftArm();
 void drawRightArm();
-void stepAnimation(int value); // Forward declaration
+void moveRobots(int value);
+void stepAnimation(int value);
 
 int main(int argc, char** argv)
 {
@@ -162,9 +167,10 @@ int main(int argc, char** argv)
 	glutKeyboardFunc(keyboard);
 	glutSpecialFunc(functionKeys);
 
-	// Start walking right away
-	walking = true;
-	glutTimerFunc(10, stepAnimation, 0);
+	// Start movement animations
+	walking = true;  // Start walking animation automatically
+	glutTimerFunc(16, moveRobots, 0);  // Start robot movement animation
+	glutTimerFunc(10, stepAnimation, 0);  // Start walking animation
 
 	// Start event loop, never returns
 	glutMainLoop();
@@ -205,12 +211,11 @@ void initOpenGL(int w, int h)
 
 	// Other initializatuion
 	// Set up ground quad mesh
-	VECTOR3D origin = VECTOR3D(-16000.0f, 0.0f, 16000.0f);
+	VECTOR3D origin = VECTOR3D(-160.0f, 0.0f, 160.0f); // Expand origin to match 10x scale
 	VECTOR3D dir1v = VECTOR3D(1.0f, 0.0f, 0.0f);
 	VECTOR3D dir2v = VECTOR3D(0.0f, 0.0f, -1.0f);
-
-	groundMesh = new QuadMesh(meshSize, 32000.0);
-	groundMesh->InitMesh(meshSize, origin, 32000.0, 32000.0, dir1v, dir2v);
+	groundMesh = new QuadMesh(meshSize, 3200.0); // Update mesh size to 3200.0 for 10x scale
+	groundMesh->InitMesh(meshSize, origin, 3200.0, 3200.0, dir1v, dir2v); // 10x larger dimensions
 
 	VECTOR3D ambient = VECTOR3D(0.0f, 0.05f, 0.0f);
 	VECTOR3D diffuse = VECTOR3D(0.4f, 0.8f, 0.4f);
@@ -231,7 +236,7 @@ void display(void)
 		gluLookAt(35.0, 20.0, 35.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 		break;
 	case 1: // Front view
-		gluLookAt(0.0, 15.0, 50.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
+		gluLookAt(0.0, 15.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 		break;
 	case 2: // Side view
 		gluLookAt(50.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
@@ -241,18 +246,15 @@ void display(void)
 		break;
 	}
 
-	// Translate all robots forward using robotZPosition
-	glTranslatef(0.0f, 0.0f, robotZPosition);
-
 	// Draw multiple robots
 	int numRobots = 3;
-	float spacing = 30.0f;
+	float spacing = 20.0f;
 
 	for (int i = 0; i < numRobots; i++) {
 		glPushMatrix();
-		// Position each robot along the x-axis
-		float offset = (i - (numRobots - 1) * 0.5f) * spacing;
-		glTranslatef(offset, 0.0, 0.0);
+		// Position each robot along the x-axis and add movement along the z-axis
+		float offsetX = (i - (numRobots - 1) * 0.5f) * spacing;
+		glTranslatef(offsetX, 0.0, robotZOffset);
 		drawRobot();
 		glPopMatrix();
 	}
@@ -879,7 +881,7 @@ void reshape(int w, int h)
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	gluPerspective(60.0, (GLdouble)w / h, 0.2, 1000.0); // Increased far clipping plane from 40.0 to 100.0
+	gluPerspective(60.0, (GLdouble)w / h, 0.2, 500.0);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -889,70 +891,76 @@ void reshape(int w, int h)
 }
 
 
+void moveRobots(int value) {
+	if (movingForward) {
+		robotZOffset += 0.2f; // Move forward
+		if (robotZOffset > 50.0f) { // Example boundary
+			movingForward = false; // Reverse direction
+		}
+	}
+	else {
+		robotZOffset -= 0.2f; // Move backward
+		if (robotZOffset < -50.0f) { // Example boundary
+			movingForward = true; // Reverse direction
+		}
+	}
+	glutPostRedisplay(); // Trigger redraw
+	glutTimerFunc(16, moveRobots, 0); // Schedule next movement
+}
+
 bool stop = false;
 
 void stepAnimation(int value)
 {
 	if (walking) {
-		// Move legs in opposite directions
+		float angleStep = 1.0f;
+		float positionStep = 0.05f;
+
 		if (walkingForward) {
-			// Move left leg forward, right leg backward
 			if (hipAngleLeft < 50.0f) {
-				hipAngleLeft += 2.0f;   // Raise left hip
-				kneeAngleLeft -= 1.5f;  // Bend left knee
-				ankleAngleLeft += 1.0f; // Raise left ankle
-				lowerLegAngleLeft += 2.0f; // Rotate the lower leg at the new joint
+				hipAngleLeft += angleStep;
+				kneeAngleLeft -= angleStep * 0.75f;
+				ankleAngleLeft += angleStep * 0.5f;
+				lowerLegAngleLeft += angleStep;
 			}
 
 			if (hipAngleRight > -50.0f) {
-				hipAngleRight -= 2.0f;   // Lower right hip
-				kneeAngleRight += 1.5f;  // Straighten right knee
-				ankleAngleRight -= 1.0f; // Lower right ankle
-				lowerLegAngleRight -= 2.0f; // Rotate the lower leg at the new joint
+				hipAngleRight -= angleStep;
+				kneeAngleRight += angleStep * 0.75f;
+				ankleAngleRight -= angleStep * 0.5f;
+				lowerLegAngleRight -= angleStep;
 			}
 
-			// If both legs have reached their maximum angles, switch direction
 			if (hipAngleLeft >= 50.0f && hipAngleRight <= -50.0f) {
-				walkingForward = false;  // Switch to moving backward
+				walkingForward = false;
 			}
 
-			// After computing new angles, move all robots forward a bit:
-			robotZPosition += 0.1f;
-
-			glutPostRedisplay(); // Trigger redraw
-
-			// Continue the walking animation if still active
-			if (walking) {
-				glutTimerFunc(30, stepAnimation, 0); // Continue walking
-			}
+			robotZOffset += positionStep;
 		}
-		else { // Move legs in reverse direction (reset position)
-			// Move left leg backward, right leg forward
+		else {
 			if (hipAngleLeft > 0.0f) {
-				hipAngleLeft -= 2.0f;   // Lower left hip
-				kneeAngleLeft += 1.5f;  // Straighten left knee
-				ankleAngleLeft -= 1.0f; // Lower left ankle
-				lowerLegAngleLeft -= 2.0f; // Reset the lower leg joint angle
+				hipAngleLeft -= angleStep;
+				kneeAngleLeft += angleStep * 0.75f;
+				ankleAngleLeft -= angleStep * 0.5f;
+				lowerLegAngleLeft -= angleStep;
 			}
 
 			if (hipAngleRight < 0.0f) {
-				hipAngleRight += 2.0f;   // Raise right hip
-				kneeAngleRight -= 1.5f;  // Bend right knee
-				ankleAngleRight += 1.0f; // Raise right ankle
-				lowerLegAngleRight += 2.0f; // Rotate the lower leg at the new joint
+				hipAngleRight += angleStep;
+				kneeAngleRight -= angleStep * 0.75f;
+				ankleAngleRight += angleStep * 0.5f;
+				lowerLegAngleRight += angleStep;
 			}
 
-			// If both legs have returned to their starting angles, switch direction
 			if (hipAngleLeft <= 0.0f && hipAngleRight >= 0.0f) {
-				walkingForward = true;   // Switch to moving forward
+				walkingForward = true;
 			}
 		}
 
-		glutPostRedisplay();  // Trigger redraw
+		glutPostRedisplay();
 
-		// Continue the walking animation if walking is still active
 		if (walking) {
-			glutTimerFunc(10, stepAnimation, 0);  // Continue walking
+			glutTimerFunc(50, stepAnimation, 0);
 		}
 	}
 }
