@@ -134,6 +134,16 @@ struct Robot {
 	float direction;
 };
 
+struct Projectile {
+	float x, y, z;     // Position
+	float speed;       // Speed of the projectile
+	float directionX, directionY, directionZ; // Direction vector
+	bool active;       // Is the projectile currently active?
+};
+
+const int maxProjectiles = 10; // Max number of projectiles
+Projectile projectiles[maxProjectiles];
+
 float spacing = 20.0f;
 const int numRobots = 3;
 Robot robots[numRobots];
@@ -159,6 +169,12 @@ void drawRightArm();
 void moveRobots(int value);
 void stepAnimation(int value);
 void initializeRobots();
+void initializeProjectiles();
+void fireProjectile(float startX, float startY, float startZ, float targetX, float targetY, float targetZ);
+void fireRandomProjectiles(int value);
+void updateProjectiles(int value);
+void drawProjectiles();
+void drawDebugCannonMarker(float x, float y, float z);
 
 int main(int argc, char** argv)
 {
@@ -169,8 +185,9 @@ int main(int argc, char** argv)
 	glutInitWindowPosition(200, 30);
 	glutCreateWindow("3D Hierarchical Example");
 
-	// Initialize robots
+	// Initialize robots & projectiles
 	initializeRobots();
+	initializeProjectiles();
 
 	// Initialize GL
 	initOpenGL(vWidth, vHeight);
@@ -187,6 +204,8 @@ int main(int argc, char** argv)
 	walking = true;  // Start walking animation automatically
 	glutTimerFunc(16, moveRobots, 0);  // Start robot movement animation
 	glutTimerFunc(10, stepAnimation, 0);  // Start walking animation
+	glutTimerFunc(16, updateProjectiles, 0);
+	glutTimerFunc(500, fireRandomProjectiles, 0);
 
 	// Start event loop, never returns
 	glutMainLoop();
@@ -201,6 +220,103 @@ void initializeRobots() {
 		robots[i].speed = 0.1f + 0.05f * i; // Slightly different speeds
 		robots[i].direction = 0.0f; // All initially walking straight
 	}
+}
+
+void initializeProjectiles() {
+	for (int i = 0; i < maxProjectiles; i++) {
+		projectiles[i].active = false; // Initially, all projectiles are inactive
+	}
+}
+
+void fireProjectile(float startX, float startY, float startZ, float targetX, float targetY, float targetZ) {
+	for (int i = 0; i < maxProjectiles; i++) {
+		if (!projectiles[i].active) { // Find an inactive projectile
+			// Set the initial position of the projectile
+			projectiles[i].x = startX;
+			projectiles[i].y = startY;
+			projectiles[i].z = startZ;
+
+			// Calculate the direction vector to the target
+			float dirX = targetX - startX;
+			float dirY = targetY - startY;
+			float dirZ = targetZ - startZ;
+			float magnitude = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+
+			// Normalize the direction vector
+			if (magnitude > 0.0f) {
+				projectiles[i].directionX = dirX / magnitude;
+				projectiles[i].directionY = dirY / magnitude;
+				projectiles[i].directionZ = dirZ / magnitude;
+			}
+
+			projectiles[i].speed = 0.5f; // Set projectile speed
+			projectiles[i].active = true;
+			break;
+		}
+	}
+}
+
+void fireRandomProjectiles(int value) {
+	for (int i = 0; i < numRobots; i++) {
+		if (rand() % 100 < 20) { // 20% chance to fire
+			// Get robot's base position and direction
+			float robotX = robots[i].xOffset;
+			float robotZ = robots[i].zOffset;
+			float robotDirection = robots[i].direction;
+
+			// Cannon's offset in local space
+			float cannonOffsetY = 10.0f;  // Height of the cannon
+			float cannonOffsetZ = gunLength * 0.5f; // Forward offset of the cannon
+
+			// Compute world position of the cannon's front
+			float cannonX = robotX + sin(robotDirection * M_PI / 180.0f) * cannonOffsetZ;
+			float cannonY = cannonOffsetY;
+			float cannonZ = robotZ + cos(robotDirection * M_PI / 180.0f) * cannonOffsetZ;
+
+			// Always fire toward the front view's target
+			fireProjectile(cannonX, cannonY, cannonZ, 0.0f, 15.0f, 100.0f);
+		}
+	}
+
+	glutTimerFunc(500, fireRandomProjectiles, 0); // Repeat every 500ms
+}
+
+void updateProjectiles(int value) {
+	for (int i = 0; i < maxProjectiles; i++) {
+		if (projectiles[i].active) {
+			projectiles[i].x += projectiles[i].directionX * projectiles[i].speed;
+			projectiles[i].y += projectiles[i].directionY * projectiles[i].speed;
+			projectiles[i].z += projectiles[i].directionZ * projectiles[i].speed;
+
+			// Deactivate if projectile goes out of bounds
+			if (projectiles[i].z < -100 || projectiles[i].z > 100 ||
+				projectiles[i].x < -100 || projectiles[i].x > 100) {
+				projectiles[i].active = false;
+			}
+		}
+	}
+	glutPostRedisplay();
+	glutTimerFunc(16, updateProjectiles, 0); // Repeat every 16ms (~60 FPS)
+}
+
+void drawProjectiles() {
+	for (int i = 0; i < maxProjectiles; i++) {
+		if (projectiles[i].active) {
+			glPushMatrix();
+			glTranslatef(projectiles[i].x, projectiles[i].y, projectiles[i].z);
+			glMaterialfv(GL_FRONT, GL_AMBIENT, red_orange_ambient); // Example material
+			glutSolidSphere(0.5, 16, 16); // Draw a small sphere for the projectile
+			glPopMatrix();
+		}
+	}
+}
+
+void drawDebugCannonMarker(float x, float y, float z) {
+	glPushMatrix();
+	glTranslatef(x, y, z);
+	glMaterialfv(GL_FRONT, GL_AMBIENT, red_orange_ambient);
+	glutSolidSphere(0.5, 16, 16); // Debug marker
+	glPopMatrix();
 }
 
 // Set up OpenGL. For viewport and projection setup see reshape().
@@ -277,6 +393,8 @@ void display(void)
 		drawRobot();
 		glPopMatrix();
 	}
+
+	drawProjectiles();
 
 	// Draw ground (lowered further)
 	glPushMatrix();
