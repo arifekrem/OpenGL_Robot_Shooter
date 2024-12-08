@@ -392,8 +392,18 @@ void updateEnemyProjectiles(int value) {
 			projectiles[i].y += projectiles[i].directionY * projectiles[i].speed;
 			projectiles[i].z += projectiles[i].directionZ * projectiles[i].speed;
 
+			// Check collision with the defensive cannon
+			if (!cannonDisabled &&
+				fabs(projectiles[i].x - cameraX) < 4.0f &&   // X-axis collision range
+				fabs(projectiles[i].y - (cameraY - 5.0f)) < 2.0f && // Y-axis collision range
+				fabs(projectiles[i].z - (cameraZ - 10.0f)) < 2.0f) { // Z-axis collision range
+				cannonDisabled = true;  // Disable cannon
+				glutTimerFunc(16, updateCannonFade, 0); // Start fading animation
+				projectiles[i].active = false; // Deactivate the projectile
+			}
+
 			// Deactivate if projectile goes out of bounds
-			if (projectiles[i].z < -100 || projectiles[i].z > 100 ||
+			if (fabs(projectiles[i].z) < -100 || projectiles[i].z > 100 ||
 				projectiles[i].x < -100 || projectiles[i].x > 100 ||
 				projectiles[i].y < -10 || projectiles[i].y > 50) {
 				projectiles[i].active = false;
@@ -620,11 +630,11 @@ void updateDefensiveProjectiles() {
 			defensiveProjectiles[i].z += defensiveProjectiles[i].directionZ * defensiveProjectiles[i].speed;
 
 			// Check for collisions with enemy robots
-			for (int j = 0; j < numRobots; j++) {
+			for (int j = 0; j < robotCount; j++) { // Loop through all robots
 				if (!robots[j].disabled &&
 					detectDefensiveLaserCollisionWithBot(defensiveProjectiles[i], robots[j])) {
 					// Handle collision
-					robots[j].disabled = true; // Disable the enemy robot
+					robots[j].disabled = true; // Disable the robot
 					robots[j].breakingTimer = 50; // Trigger breaking animation
 					defensiveProjectiles[i].active = false; // Deactivate projectile
 					break; // Handle only one collision per projectile
