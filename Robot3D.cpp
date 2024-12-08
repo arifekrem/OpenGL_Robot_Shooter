@@ -169,7 +169,6 @@ Projectile projectiles[maxProjectiles];
 std::vector<Projectile> defensiveProjectiles; // For defensive cannon projectiles
 
 float spacing = 20.0f;
-const int numRobots = 3;
 Robot* robots = nullptr;
 
 // Default Mesh Size
@@ -368,7 +367,7 @@ VECTOR3D getCannonWorldPosition(Robot robot) {
 void fireRandomEnemyProjectiles(int value) {
 	float projectileDirX = 0.0f, projectileDirY = 0.0f, projectileDirZ = -1.0f;
 
-	for (int i = 0; i < numRobots; i++) {
+	for (int i = 0; i < robotCount; i++) {
 		if (robots[i].disabled) {
 			continue; // Skip disabled robots
 		}
@@ -1541,7 +1540,7 @@ bool stop = false;
 void stepAnimation(int value)
 {
 	if (walking) {
-		for (int i = 0; i < numRobots; i++) {
+		for (int i = 0; i < robotCount; i++) {
 			float angleStep = 1.0f + i * 0.2f;
 			float positionStep = 0.05f;
 
