@@ -347,7 +347,7 @@ void fireEnemyProjectile(float startX, float startY, float startZ, float camDirX
 				projectiles[i].directionZ = -1.0f;
 			}
 
-			projectiles[i].speed = 0.5f; // Set speed for the projectile
+			projectiles[i].speed = 2.0f; // Set speed for the projectile
 			projectiles[i].active = true;
 
 			break; // Use only one projectile at a time
@@ -642,7 +642,7 @@ void fireDefensiveCannonProjectile() {
 	newProjectile.directionX = dirX;
 	newProjectile.directionY = dirY;
 	newProjectile.directionZ = dirZ;
-	newProjectile.speed = 1.0f; // Speed of the projectile
+	newProjectile.speed = 3.0f; // Speed of the projectile
 	newProjectile.active = true;
 
 	defensiveProjectiles.push_back(newProjectile); // Add projectile to list
@@ -1873,14 +1873,15 @@ void handleMouseMotion(int x, int y) {
 	static int lastX = x, lastY = y;
 
 	// Adjust yaw (horizontal) and pitch (vertical) based on mouse movement
-	float deltaX = (x - lastX) * 0.05f; // Adjust sensitivity if needed
-	float deltaY = (y - lastY) * 0.05f;
+	float sensitivity = 0.1f; // Increase this value to make the mouse movement more sensitive
+	float deltaX = (x - lastX) * sensitivity;
+	float deltaY = (y - lastY) * sensitivity;
 
 	cameraYaw += deltaX;
 	cameraPitch -= deltaY;
 
 	// Adjust the range of cameraYaw to allow further left/right movement
-	const float maxYaw = 100.0f; // Allow more left/right rotation
+	const float maxYaw = 180.0f; // Increase to allow even more left/right rotation
 	if (cameraYaw > maxYaw) cameraYaw = maxYaw;
 	if (cameraYaw < -maxYaw) cameraYaw = -maxYaw;
 

@@ -1,10 +1,10 @@
 ﻿C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VC\v170\Microsoft.CppBuild.targets(531,5): warning MSB8028: The intermediate directory (CPS511_A.a2a2da67\x64\Debug\) contains files shared from another project (CPS511_Assignment1.vcxproj).  This can lead to incorrect clean and rebuild behavior.
   QuadMesh.cpp
-  Robot3D.cpp
 C:\Users\Alden\Desktop\CPS511\Assignment 3\CPS511A3\QuadMesh.cpp(32,22): warning C4305: '=': truncation from 'double' to 'GLfloat'
 C:\Users\Alden\Desktop\CPS511\Assignment 3\CPS511A3\QuadMesh.cpp(52,24): warning C4244: '=': conversion from 'double' to 'GLfloat', possible loss of data
 C:\Users\Alden\Desktop\CPS511\Assignment 3\CPS511A3\QuadMesh.cpp(85,11): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
 C:\Users\Alden\Desktop\CPS511\Assignment 3\CPS511A3\QuadMesh.cpp(91,11): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+  Robot3D.cpp
 C:\Users\Alden\Desktop\CPS511\Assignment 3\CPS511A3\Robot3D.cpp(25,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
 C:\Users\Alden\Desktop\CPS511\Assignment 3\CPS511A3\Robot3D.cpp(29,21): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
 C:\Users\Alden\Desktop\CPS511\Assignment 3\CPS511A3\Robot3D.cpp(31,17): warning C4244: 'initializing': conversion from 'double' to 'float', possible loss of data
