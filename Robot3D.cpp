@@ -174,7 +174,6 @@ void fireProjectile(float startX, float startY, float startZ, float targetX, flo
 void fireRandomProjectiles(int value);
 void updateProjectiles(int value);
 void drawProjectiles();
-void drawDebugCannonMarker(float x, float y, float z);
 
 int main(int argc, char** argv)
 {
@@ -240,16 +239,16 @@ void fireProjectile(float startX, float startY, float startZ, float targetX, flo
 			float dirX = targetX - startX;
 			float dirY = targetY - startY;
 			float dirZ = targetZ - startZ;
-			float magnitude = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
 
 			// Normalize the direction vector
+			float magnitude = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
 			if (magnitude > 0.0f) {
 				projectiles[i].directionX = dirX / magnitude;
 				projectiles[i].directionY = dirY / magnitude;
 				projectiles[i].directionZ = dirZ / magnitude;
 			}
 
-			projectiles[i].speed = 0.5f; // Set projectile speed
+			projectiles[i].speed = 4.0f; // Speed for the laser
 			projectiles[i].active = true;
 			break;
 		}
@@ -259,38 +258,31 @@ void fireProjectile(float startX, float startY, float startZ, float targetX, flo
 void fireRandomProjectiles(int value) {
 	for (int i = 0; i < numRobots; i++) {
 		if (rand() % 100 < 20) { // 20% chance to fire
-			// Get robot's base position and direction
-			float robotX = robots[i].xOffset;
-			float robotZ = robots[i].zOffset;
-			float robotDirection = robots[i].direction;
+			// Calculate the cannon tip position
+			float robotDirectionRad = robots[i].direction * M_PI / 180.0f;
+			float cannonTipX = robots[i].xOffset + cos(robotDirectionRad) * (0.5 * gunLength);
+			float cannonTipY = 1.5; // Adjust height of the cannon
+			float cannonTipZ = robots[i].zOffset + sin(robotDirectionRad) * (0.5 * gunLength);
 
-			// Cannon's offset in local space
-			float cannonOffsetY = 10.0f;  // Height of the cannon
-			float cannonOffsetZ = gunLength * 0.5f; // Forward offset of the cannon
-
-			// Compute world position of the cannon's front
-			float cannonX = robotX + sin(robotDirection * M_PI / 180.0f) * cannonOffsetZ;
-			float cannonY = cannonOffsetY;
-			float cannonZ = robotZ + cos(robotDirection * M_PI / 180.0f) * cannonOffsetZ;
-
-			// Always fire toward the front view's target
-			fireProjectile(cannonX, cannonY, cannonZ, 0.0f, 15.0f, 100.0f);
+			// Fire toward the front camera
+			fireProjectile(cannonTipX, cannonTipY, cannonTipZ, 0.0f, cannonTipY, 100.0f); // Front camera is along +Z
 		}
 	}
-
 	glutTimerFunc(500, fireRandomProjectiles, 0); // Repeat every 500ms
 }
 
 void updateProjectiles(int value) {
 	for (int i = 0; i < maxProjectiles; i++) {
 		if (projectiles[i].active) {
+			// Update position based on direction and speed
 			projectiles[i].x += projectiles[i].directionX * projectiles[i].speed;
 			projectiles[i].y += projectiles[i].directionY * projectiles[i].speed;
 			projectiles[i].z += projectiles[i].directionZ * projectiles[i].speed;
 
 			// Deactivate if projectile goes out of bounds
 			if (projectiles[i].z < -100 || projectiles[i].z > 100 ||
-				projectiles[i].x < -100 || projectiles[i].x > 100) {
+				projectiles[i].x < -100 || projectiles[i].x > 100 ||
+				projectiles[i].y < -10 || projectiles[i].y > 50) {
 				projectiles[i].active = false;
 			}
 		}
@@ -303,20 +295,55 @@ void drawProjectiles() {
 	for (int i = 0; i < maxProjectiles; i++) {
 		if (projectiles[i].active) {
 			glPushMatrix();
+
+			// Position the projectile in world space
 			glTranslatef(projectiles[i].x, projectiles[i].y, projectiles[i].z);
-			glMaterialfv(GL_FRONT, GL_AMBIENT, red_orange_ambient); // Example material
-			glutSolidSphere(0.5, 16, 16); // Draw a small sphere for the projectile
+
+			// Calculate rotation to align the laser with its direction vector
+			// Correct the rotation for front camera orientation
+			float angleXZ = atan2(projectiles[i].directionZ, projectiles[i].directionX) * 180.0 / M_PI;
+			float angleYZ = atan2(projectiles[i].directionY, sqrt(projectiles[i].directionX * projectiles[i].directionX + projectiles[i].directionZ * projectiles[i].directionZ)) * 180.0 / M_PI;
+
+			// Adjust rotation to ensure the tip points toward the front camera
+			glRotatef(angleXZ - 90.0f, 0.0f, 1.0f, 0.0f); // Rotate in XZ plane and correct for 90 degrees
+			glRotatef(-angleYZ, 1.0f, 0.0f, 0.0f);        // Rotate for Y-axis elevation
+
+			// Set material properties for the laser (red)
+			GLfloat laser_ambient[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+			GLfloat laser_diffuse[] = { 1.0f, 0.2f, 0.2f, 1.0f };
+			GLfloat laser_specular[] = { 1.0f, 0.5f, 0.5f, 1.0f };
+			GLfloat laser_shininess[] = { 32.0f };
+
+			glMaterialfv(GL_FRONT, GL_AMBIENT, laser_ambient);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, laser_diffuse);
+			glMaterialfv(GL_FRONT, GL_SPECULAR, laser_specular);
+			glMaterialfv(GL_FRONT, GL_SHININESS, laser_shininess);
+
+			// Draw laser cylinder
+			GLUquadric* quad = gluNewQuadric();
+			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16);
+			gluDeleteQuadric(quad);
+
+			// OPTIONAL: Draw glowing tip
+			glPushMatrix();
+			glTranslatef(0.0f, 0.0f, 3.0f); // Move to the tip of the laser
+			GLfloat glow_ambient[] = { 1.0f, 0.2f, 0.2f, 0.5f }; // Slightly transparent glow
+			GLfloat glow_diffuse[] = { 1.0f, 0.3f, 0.3f, 0.5f };
+			GLfloat glow_specular[] = { 1.0f, 0.4f, 0.4f, 0.5f };
+			GLfloat glow_shininess[] = { 10.0f };
+
+			glMaterialfv(GL_FRONT, GL_AMBIENT, glow_ambient);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, glow_diffuse);
+			glMaterialfv(GL_FRONT, GL_SPECULAR, glow_specular);
+			glMaterialfv(GL_FRONT, GL_SHININESS, glow_shininess);
+
+			// Draw a small sphere for the glowing tip
+			glutSolidSphere(0.2f, 16, 16);
+			glPopMatrix();
+
 			glPopMatrix();
 		}
 	}
-}
-
-void drawDebugCannonMarker(float x, float y, float z) {
-	glPushMatrix();
-	glTranslatef(x, y, z);
-	glMaterialfv(GL_FRONT, GL_AMBIENT, red_orange_ambient);
-	glutSolidSphere(0.5, 16, 16); // Debug marker
-	glPopMatrix();
 }
 
 // Set up OpenGL. For viewport and projection setup see reshape().
