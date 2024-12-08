@@ -338,6 +338,10 @@ void fireRandomEnemyProjectiles(int value) {
 	float projectileDirX = 0.0f, projectileDirY = 0.0f, projectileDirZ = -1.0f;
 
 	for (int i = 0; i < numRobots; i++) {
+		if (robots[i].disabled) {
+			continue; // Skip disabled robots
+		}
+
 		if (rand() % 100 < 20) { // 20% chance to fire
 			VECTOR3D cannonWorldPos = getCannonWorldPosition(robots[i]);
 			fireEnemyProjectile(
@@ -431,19 +435,24 @@ void drawEnemyProjectiles() {
 }
 
 void drawRobotWithBreakingAnimation(const Robot& enemyBot) {
+	if (enemyBot.disabled && enemyBot.breakingTimer <= 0) {
+		return; // Don't render robots that have finished breaking animation
+	}
+
 	if (enemyBot.disabled) {
+		// Breaking animation: Shrink the bot over time
 		glPushMatrix();
 		glTranslatef(enemyBot.xOffset, 0.0f, enemyBot.zOffset);
-		float scale = std::max(enemyBot.breakingTimer / 50.0f, 0.1f); // Scale robot during breaking animation
+		float scale = enemyBot.breakingTimer / 50.0f; // Shrink over time
 		glScalef(scale, scale, scale);
-		drawRobot(); // Draw robot with shrinking effect
+		drawRobot(); // Draw robot body in reduced size
 		glPopMatrix();
 		return;
 	}
 
-	// Draw normal robot
+	// Normal bot drawing
 	glPushMatrix();
-	glTranslatef(enemyBot.xOffset, 0.0f, enemyBot.zOffset);
+	glTranslatef(enemyBot.xOffset, 0.0, enemyBot.zOffset);
 	drawRobot();
 	glPopMatrix();
 }
@@ -1363,7 +1372,11 @@ void moveRobots(int value) {
 			if (robots[i].breakingTimer > 0) {
 				robots[i].breakingTimer--; // Count down breaking animation timer
 			}
-			continue; // Skip movement for disabled bots
+			else {
+				robots[i].xOffset = 1000.0f; // Move robot far off-screen
+				robots[i].zOffset = 1000.0f; // Prevent further interaction
+			}
+			continue; // Skip further processing for disabled robots
 		}
 
 		float rad = robots[i].direction * (M_PI / 180.0f);
