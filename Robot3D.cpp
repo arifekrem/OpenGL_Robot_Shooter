@@ -145,6 +145,8 @@ struct Robot {
 	float zOffset;
 	float speed;
 	float direction;
+	bool disabled;
+	int breakingTimer;
 };
 
 struct Projectile {
@@ -196,6 +198,8 @@ void updateDefensiveProjectiles();
 void drawDefensiveProjectiles();
 void checkCannonHit();
 void updateDefensiveProjectilesTimer(int value);
+bool detectDefensiveLaserCollisionWithBot(const Projectile& defensiveLaser, const Robot& enemyBot);
+void drawRobotWithBreakingAnimation(const Robot& enemyBot);
 
 int main(int argc, char** argv)
 {
@@ -241,6 +245,8 @@ void initializeRobots() {
 		robots[i].zOffset = 0.0f; // Start at the same z-axis position
 		robots[i].speed = 0.1f + 0.05f * i; // Slightly different speeds
 		robots[i].direction = 0.0f; // All initially walking straight
+		robots[i].disabled = false; // Not disabled initially
+		robots[i].breakingTimer = 0; // No animation initially
 	}
 }
 
@@ -289,6 +295,18 @@ void fireEnemyProjectile(float startX, float startY, float startZ, float camDirX
 			break; // Use only one projectile at a time
 		}
 	}
+}
+
+bool detectDefensiveLaserCollisionWithBot(const Projectile& defensiveLaser, const Robot& enemyBot) {
+	float botRadius = robotBodyWidth * 0.5f; // Approximate robot as a circle
+	float laserRadius = 0.5f; // Approximate laser size
+
+	float dx = defensiveLaser.x - enemyBot.xOffset;
+	float dz = defensiveLaser.z - enemyBot.zOffset;
+
+	float distance = sqrt(dx * dx + dz * dz);
+
+	return distance < (botRadius + laserRadius);
 }
 
 VECTOR3D getCannonWorldPosition(Robot robot) {
@@ -412,6 +430,24 @@ void drawEnemyProjectiles() {
 	}
 }
 
+void drawRobotWithBreakingAnimation(const Robot& enemyBot) {
+	if (enemyBot.disabled) {
+		glPushMatrix();
+		glTranslatef(enemyBot.xOffset, 0.0f, enemyBot.zOffset);
+		float scale = std::max(enemyBot.breakingTimer / 50.0f, 0.1f); // Scale robot during breaking animation
+		glScalef(scale, scale, scale);
+		drawRobot(); // Draw robot with shrinking effect
+		glPopMatrix();
+		return;
+	}
+
+	// Draw normal robot
+	glPushMatrix();
+	glTranslatef(enemyBot.xOffset, 0.0f, enemyBot.zOffset);
+	drawRobot();
+	glPopMatrix();
+}
+
 void drawDefensiveCannon() {
 	if (cannonDisabled) return;
 
@@ -457,19 +493,19 @@ void drawDefensiveCannon() {
 }
 
 void fireDefensiveCannonProjectile() {
-	if (cannonDisabled) return; // Do nothing if the cannon is disabled
+	if (cannonDisabled) return; // Skip if the cannon is disabled
 
-	// Adjust position based on camera's position and direction (from drawDefensiveCannon)
+	// Calculate cannon position
 	float cannonOffsetDistance = 10.0f; // Distance in front of the camera
-	float offsetX = sin(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
-	float offsetY = sin(cameraPitch * M_PI / 180.0);
-	float offsetZ = -cos(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
+	float offsetX = sin(cameraYaw * M_PI / 180.0f) * cos(cameraPitch * M_PI / 180.0f);
+	float offsetY = sin(cameraPitch * M_PI / 180.0f);
+	float offsetZ = -cos(cameraYaw * M_PI / 180.0f) * cos(cameraPitch * M_PI / 180.0f);
 
 	float cannonX = cameraX + offsetX * cannonOffsetDistance;
-	float cannonY = cameraY + offsetY * cannonOffsetDistance - 5.0f; // Slightly lower than the camera
+	float cannonY = cameraY + offsetY * cannonOffsetDistance - 5.0f;
 	float cannonZ = cameraZ + offsetZ * cannonOffsetDistance;
 
-	// Calculate the projectile's direction vector
+	// Calculate projectile direction
 	float dirX = offsetX;
 	float dirY = offsetY;
 	float dirZ = offsetZ;
@@ -482,19 +518,18 @@ void fireDefensiveCannonProjectile() {
 		dirZ /= magnitude;
 	}
 
-	// Create a new projectile at the cannon's current position
+	// Create new projectile
 	Projectile newProjectile;
-	newProjectile.x = cannonX;       // Position matches the cannon
+	newProjectile.x = cannonX;
 	newProjectile.y = cannonY;
 	newProjectile.z = cannonZ;
-	newProjectile.directionX = dirX; // Direction matches the camera orientation
+	newProjectile.directionX = dirX;
 	newProjectile.directionY = dirY;
 	newProjectile.directionZ = dirZ;
-	newProjectile.speed = 1.0f;      // Projectile speed
+	newProjectile.speed = 1.0f; // Speed of the projectile
 	newProjectile.active = true;
 
-	// Add the projectile to the defensive projectiles list
-	defensiveProjectiles.push_back(newProjectile);
+	defensiveProjectiles.push_back(newProjectile); // Add projectile to list
 }
 
 void updateDefensiveProjectiles() {
@@ -504,6 +539,18 @@ void updateDefensiveProjectiles() {
 			defensiveProjectiles[i].x += defensiveProjectiles[i].directionX * defensiveProjectiles[i].speed;
 			defensiveProjectiles[i].y += defensiveProjectiles[i].directionY * defensiveProjectiles[i].speed;
 			defensiveProjectiles[i].z += defensiveProjectiles[i].directionZ * defensiveProjectiles[i].speed;
+
+			// Check for collisions with enemy robots
+			for (int j = 0; j < numRobots; j++) {
+				if (!robots[j].disabled &&
+					detectDefensiveLaserCollisionWithBot(defensiveProjectiles[i], robots[j])) {
+					// Handle collision
+					robots[j].disabled = true; // Disable the enemy robot
+					robots[j].breakingTimer = 50; // Trigger breaking animation
+					defensiveProjectiles[i].active = false; // Deactivate projectile
+					break; // Handle only one collision per projectile
+				}
+			}
 
 			// Deactivate projectiles that go out of bounds
 			if (fabs(defensiveProjectiles[i].x) > 100 ||
@@ -515,14 +562,10 @@ void updateDefensiveProjectiles() {
 	}
 
 	// Remove inactive projectiles
-	for (auto it = defensiveProjectiles.begin(); it != defensiveProjectiles.end(); ) {
-		if (!it->active) {
-			it = defensiveProjectiles.erase(it);
-		}
-		else {
-			++it;
-		}
-	}
+	defensiveProjectiles.erase(
+		std::remove_if(defensiveProjectiles.begin(), defensiveProjectiles.end(),
+			[](const Projectile& p) { return !p.active; }),
+		defensiveProjectiles.end());
 }
 
 void drawDefensiveProjectiles() {
@@ -647,7 +690,7 @@ void display(void) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 
-	// Calculate the camera position based on yaw and pitch
+	// Calculate the camera position and direction
 	float camDirX = sin(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
 	float camDirY = sin(cameraPitch * M_PI / 180.0);
 	float camDirZ = -cos(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
@@ -659,23 +702,36 @@ void display(void) {
 	// Set the camera's view
 	gluLookAt(cameraX, cameraY, cameraZ, cameraTargetX, cameraTargetY, cameraTargetZ, 0.0f, 1.0f, 0.0f);
 
-	// Draw robots, environment, and projectiles
+	// Draw robots
 	for (int i = 0; i < numRobots; i++) {
-		glPushMatrix();
-		glTranslatef(robots[i].xOffset, 0.0, robots[i].zOffset);
-		drawRobot();
-		glPopMatrix();
+		if (robots[i].disabled) {
+			drawRobotWithBreakingAnimation(robots[i]); // Draw breaking animation for disabled robots
+		}
+		else {
+			glPushMatrix();
+			glTranslatef(robots[i].xOffset, 0.0, robots[i].zOffset);
+			drawRobot(); // Draw active robots normally
+			glPopMatrix();
+		}
 	}
 
-	drawEnemyProjectiles();
+	// Draw defensive projectiles
 	drawDefensiveProjectiles();
+
+	// Draw enemy projectiles
+	drawEnemyProjectiles();
+
+	// Draw defensive cannon
 	drawDefensiveCannon();
 
-	// Draw ground
+	// Draw ground mesh
 	glPushMatrix();
-	glTranslatef(0.0, -25.0, 0.0);
+	glTranslatef(0.0, -25.0, 0.0); // Lower the ground slightly
 	groundMesh->DrawMesh(meshSize);
 	glPopMatrix();
+
+	// Additional rendering elements (if any)
+	// Add any further components to be rendered here, if needed.
 
 	glutSwapBuffers();
 }
@@ -1303,6 +1359,13 @@ void reshape(int w, int h)
 
 void moveRobots(int value) {
 	for (int i = 0; i < numRobots; i++) {
+		if (robots[i].disabled) {
+			if (robots[i].breakingTimer > 0) {
+				robots[i].breakingTimer--; // Count down breaking animation timer
+			}
+			continue; // Skip movement for disabled bots
+		}
+
 		float rad = robots[i].direction * (M_PI / 180.0f);
 
 		robots[i].zOffset += robots[i].speed * cos(rad);
