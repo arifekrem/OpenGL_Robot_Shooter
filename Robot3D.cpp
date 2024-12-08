@@ -73,6 +73,8 @@ float cameraYaw = 0.0f;   // Horizontal rotation
 float cameraPitch = 0.0f; // Vertical rotation
 float cameraDistance = 100.0f; // Distance from the target (cannon)
 bool cannonDisabled = false; // Initially, the cannon is enabled
+float cannonFadeProgress = 0.0f;      // Progress of the cannon fade to black (0.0 to 1.0)
+float cannonColor[4] = { 0.0f, 1.0f, 0.0f, 1.0f }; // Initial green RGBA for the cannon
 
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
@@ -200,6 +202,7 @@ void checkCannonHit();
 void updateDefensiveProjectilesTimer(int value);
 bool detectDefensiveLaserCollisionWithBot(const Projectile& defensiveLaser, const Robot& enemyBot);
 void drawRobotWithBreakingAnimation(const Robot& enemyBot);
+void updateCannonFade(int value);
 
 int main(int argc, char** argv)
 {
@@ -342,7 +345,7 @@ void fireRandomEnemyProjectiles(int value) {
 			continue; // Skip disabled robots
 		}
 
-		if (rand() % 100 < 20) { // 20% chance to fire
+		if (rand() % 100 < 50) { // Increase chance to fire from 20% to 50%
 			VECTOR3D cannonWorldPos = getCannonWorldPosition(robots[i]);
 			fireEnemyProjectile(
 				cannonWorldPos.x, cannonWorldPos.y, cannonWorldPos.z,
@@ -351,7 +354,7 @@ void fireRandomEnemyProjectiles(int value) {
 		}
 	}
 
-	glutTimerFunc(500, fireRandomEnemyProjectiles, 0);
+	glutTimerFunc(200, fireRandomEnemyProjectiles, 0); // Lower interval to 200ms
 }
 
 void updateEnemyProjectiles(int value) {
@@ -464,8 +467,7 @@ void drawRobotWithBreakingAnimation(const Robot& enemyBot) {
 }
 
 void drawDefensiveCannon() {
-	if (cannonDisabled) return;
-
+	// If the cannon is fully disabled and fully black, render it as black
 	glPushMatrix();
 
 	// Adjust position based on camera's position and direction
@@ -484,24 +486,58 @@ void drawDefensiveCannon() {
 	glRotatef(-cameraYaw, 0.0, 1.0, 0.0);  // Horizontal alignment
 	glRotatef(cameraPitch, 1.0, 0.0, 0.0); // Vertical alignment
 
-	// Draw cannon base
+	// Base material: Black if fully disabled
+	GLfloat blackAmbient[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	GLfloat blackDiffuse[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	GLfloat blackSpecular[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+	GLfloat blackShininess = 0.0f;
+
+	if (cannonDisabled && cannonFadeProgress >= 1.0f) {
+		// Apply fully black material
+		glMaterialfv(GL_FRONT, GL_AMBIENT, blackAmbient);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, blackDiffuse);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, blackSpecular);
+		glMaterialfv(GL_FRONT, GL_SHININESS, &blackShininess);
+	}
+	else {
+		// Transition to black based on fade progress
+		GLfloat currentBaseAmbient[4], currentBaseDiffuse[4], currentBaseSpecular[4];
+		for (int i = 0; i < 4; i++) {
+			currentBaseAmbient[i] = green_mat_ambient[i] * (1.0f - cannonFadeProgress);
+			currentBaseDiffuse[i] = green_mat_diffuse[i] * (1.0f - cannonFadeProgress);
+			currentBaseSpecular[i] = green_mat_specular[i] * (1.0f - cannonFadeProgress);
+		}
+		glMaterialfv(GL_FRONT, GL_AMBIENT, currentBaseAmbient);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, currentBaseDiffuse);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, currentBaseSpecular);
+		glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
+	}
+
+	// Draw cannon base (scaled 2x)
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, dark_grey_ambient);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
-	glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
-	glScalef(3.0, 1.5, 3.0); // Scale the base
+	glScalef(6.0, 3.0, 6.0); // Base scaled to twice the original size
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Draw cannon barrel
+	// Barrel material
+	if (cannonDisabled && cannonFadeProgress >= 1.0f) {
+		// Apply fully black material for the barrel as well
+		glMaterialfv(GL_FRONT, GL_AMBIENT, blackAmbient);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, blackDiffuse);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, blackSpecular);
+		glMaterialfv(GL_FRONT, GL_SHININESS, &blackShininess);
+	}
+	else {
+		glMaterialfv(GL_FRONT, GL_AMBIENT, dark_grey_ambient);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
+		glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
+	}
+
+	// Draw cannon barrel (scaled 2x)
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
-	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-	glTranslatef(0.0, 0.5, -2.0); // Adjust barrel position
-	gluCylinder(gluNewQuadric(), 0.5, 0.5, 5.0, 16, 16); // Barrel shape
+	glTranslatef(0.0, 1.0, -4.0); // Adjust barrel position to fit the larger base
+	gluCylinder(gluNewQuadric(), 1.0, 1.0, 10.0, 16, 16); // Barrel scaled up
 	glPopMatrix();
 
 	glPopMatrix();
@@ -647,13 +683,31 @@ void drawDefensiveProjectiles() {
 void checkCannonHit() {
 	for (int i = 0; i < maxProjectiles; i++) {
 		if (projectiles[i].active) {
-			if (fabs(projectiles[i].x) < 2.0f &&
-				fabs(projectiles[i].y + 2.0f) < 1.0f &&
-				fabs(projectiles[i].z + 5.0f) < 1.0f) { // Adjust collision bounds
+			// Adjust collision bounds for the larger cannon
+			if (fabs(projectiles[i].x - cameraX) < 4.0f &&   // X-axis range doubled
+				fabs(projectiles[i].y - (cameraY - 5.0f)) < 2.0f && // Y-axis range doubled
+				fabs(projectiles[i].z - (cameraZ - 10.0f)) < 2.0f) { // Z-axis range doubled
 				cannonDisabled = true;  // Disable cannon
-				spinCannon = false;     // Stop cannon animation
+				glutTimerFunc(16, updateCannonFade, 0); // Start fading animation
+				projectiles[i].active = false; // Deactivate the projectile
 			}
 		}
+	}
+}
+
+void updateCannonFade(int value) {
+	if (cannonDisabled && cannonFadeProgress < 1.0f) {
+		// Increment fade progress
+		cannonFadeProgress += 0.01f; // Adjust for slower or faster fading
+
+		// Interpolate RGBA values to fade to black
+		for (int i = 0; i < 3; i++) {
+			cannonColor[i] = (1.0f - cannonFadeProgress) * green_mat_diffuse[i];
+		}
+		cannonColor[3] = 1.0f; // Maintain full opacity
+
+		glutPostRedisplay();
+		glutTimerFunc(16, updateCannonFade, 0); // Call this function every 16ms (60 FPS)
 	}
 }
 
@@ -718,6 +772,12 @@ void display(void) {
 
 	// Set the camera's view
 	gluLookAt(cameraX, cameraY, cameraZ, cameraTargetX, cameraTargetY, cameraTargetZ, 0.0f, 1.0f, 0.0f);
+
+	// Check if the cannon is hit and start fading animation if necessary
+	checkCannonHit();
+	if (cannonDisabled && cannonFadeProgress < 1.0f) {
+		glutTimerFunc(16, updateCannonFade, 0); // Start fading animation
+	}
 
 	// Draw robots
 	for (int i = 0; i < numRobots; i++) {
