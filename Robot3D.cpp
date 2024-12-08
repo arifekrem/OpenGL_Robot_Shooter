@@ -424,6 +424,12 @@ void drawEnemyProjectiles() {
 			// Apply the rotation matrix
 			glMultMatrixf(rotationMatrix);
 
+			// Set material properties for enemy projectiles (red)
+			glMaterialfv(GL_FRONT, GL_AMBIENT, red_orange_ambient);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, red_orange_diffuse);
+			glMaterialfv(GL_FRONT, GL_SPECULAR, red_orange_specular);
+			glMaterialfv(GL_FRONT, GL_SHININESS, red_orange_shininess);
+
 			// Draw the projectile as a cylinder
 			GLUquadric* quad = gluNewQuadric();
 			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16); // Thin, elongated cylinder
@@ -622,12 +628,14 @@ void drawDefensiveProjectiles() {
 			// Apply the rotation matrix
 			glMultMatrixf(rotationMatrix);
 
-			// Draw the projectile as a neon green cylinder
-			GLUquadric* quad = gluNewQuadric();
+			// Set material properties for defensive projectiles (neon green)
 			glMaterialfv(GL_FRONT, GL_AMBIENT, neon_green_ambient);
 			glMaterialfv(GL_FRONT, GL_DIFFUSE, neon_green_diffuse);
 			glMaterialfv(GL_FRONT, GL_SPECULAR, neon_green_specular);
 			glMaterialfv(GL_FRONT, GL_SHININESS, neon_green_shininess);
+
+			// Draw the projectile as a neon green cylinder
+			GLUquadric* quad = gluNewQuadric();
 			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16); // Thin, elongated cylinder
 			gluDeleteQuadric(quad);
 
