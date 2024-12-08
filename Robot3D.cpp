@@ -412,10 +412,21 @@ void drawDefensiveCannon() {
 
 	glPushMatrix();
 
-	// Adjust position and rotation relative to camera/scene
-	glTranslatef(0.0, -5.0, -15.0); // Position closer to the camera (adjust as needed)
-	glRotatef(barrelYawAngle, 0.0, 1.0, 0.0);  // Horizontal rotation
-	glRotatef(barrelTiltAngle, 1.0, 0.0, 0.0); // Vertical tilt
+	// Adjust position based on camera's position and direction
+	float cannonOffsetDistance = 10.0f; // Distance in front of the camera
+	float offsetX = sin(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
+	float offsetY = sin(cameraPitch * M_PI / 180.0);
+	float offsetZ = -cos(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
+
+	float cannonX = cameraX + offsetX * cannonOffsetDistance;
+	float cannonY = cameraY + offsetY * cannonOffsetDistance - 5.0f; // Slightly lower than the camera
+	float cannonZ = cameraZ + offsetZ * cannonOffsetDistance;
+
+	glTranslatef(cannonX, cannonY, cannonZ);
+
+	// Align the cannon with the camera's orientation
+	glRotatef(-cameraYaw, 0.0, 1.0, 0.0);  // Horizontal alignment
+	glRotatef(cameraPitch, 1.0, 0.0, 0.0); // Vertical alignment
 
 	// Draw cannon base
 	glPushMatrix();
@@ -423,7 +434,7 @@ void drawDefensiveCannon() {
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
 	glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
-	glScalef(4.0, 2.0, 4.0); // Scale the base for a larger appearance
+	glScalef(3.0, 1.5, 3.0); // Scale the base
 	glutSolidCube(1.0);
 	glPopMatrix();
 
@@ -433,19 +444,30 @@ void drawDefensiveCannon() {
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
 	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-	glTranslatef(0.0, 1.0, -2.0);  // Position barrel closer to the center of the view
-	gluCylinder(gluNewQuadric(), 1.0, 1.0, 6.0, 16, 16); // Barrel shape
+	glTranslatef(0.0, 0.5, -2.0); // Adjust barrel position
+	gluCylinder(gluNewQuadric(), 0.5, 0.5, 5.0, 16, 16); // Barrel shape
 	glPopMatrix();
 
 	glPopMatrix();
 }
 
 void fireDefensiveCannonProjectile() {
-	// Calculate the direction vector from the barrel's angles
-	// Invert horizontal (yaw) and vertical (tilt) to align with mouse movement
-	float dirX = -sin(barrelYawAngle * M_PI / 180.0);  // Invert horizontal direction
-	float dirY = sin(barrelTiltAngle * M_PI / 180.0);  // Invert vertical direction
-	float dirZ = -cos(barrelYawAngle * M_PI / 180.0);  // Ensure projectiles fire away from the camera
+	if (cannonDisabled) return; // Do nothing if the cannon is disabled
+
+	// Adjust position based on camera's position and direction (from drawDefensiveCannon)
+	float cannonOffsetDistance = 10.0f; // Distance in front of the camera
+	float offsetX = sin(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
+	float offsetY = sin(cameraPitch * M_PI / 180.0);
+	float offsetZ = -cos(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
+
+	float cannonX = cameraX + offsetX * cannonOffsetDistance;
+	float cannonY = cameraY + offsetY * cannonOffsetDistance - 5.0f; // Slightly lower than the camera
+	float cannonZ = cameraZ + offsetZ * cannonOffsetDistance;
+
+	// Calculate the projectile's direction vector
+	float dirX = offsetX;
+	float dirY = offsetY;
+	float dirZ = offsetZ;
 
 	// Normalize the direction vector
 	float magnitude = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
@@ -455,18 +477,18 @@ void fireDefensiveCannonProjectile() {
 		dirZ /= magnitude;
 	}
 
-	// Create a new projectile
+	// Create a new projectile at the cannon's current position
 	Projectile newProjectile;
-	newProjectile.x = 0.0;               // Cannon's origin position in world coordinates
-	newProjectile.y = -5.0;              // Match cannon's position
-	newProjectile.z = -15.0;             // Match cannon's position
-	newProjectile.directionX = dirX;     // Corrected direction
+	newProjectile.x = cannonX;       // Position matches the cannon
+	newProjectile.y = cannonY;
+	newProjectile.z = cannonZ;
+	newProjectile.directionX = dirX; // Direction matches the camera orientation
 	newProjectile.directionY = dirY;
 	newProjectile.directionZ = dirZ;
-	newProjectile.speed = 1.0f;          // Set projectile speed
+	newProjectile.speed = 1.0f;      // Projectile speed
 	newProjectile.active = true;
 
-	// Add the projectile to the defensive projectiles vector
+	// Add the projectile to the defensive projectiles list
 	defensiveProjectiles.push_back(newProjectile);
 }
 
