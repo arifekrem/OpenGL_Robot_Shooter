@@ -208,6 +208,8 @@ void drawRobotWithBreakingAnimation(const Robot& enemyBot);
 void updateCannonFade(int value);
 void resetRobots();
 void cleanupRobots();
+void resetApplication();
+bool gameDisabled = false;
 
 int main(int argc, char** argv)
 {
@@ -278,6 +280,32 @@ void cleanupRobots() {
 		delete[] robots;
 		robots = nullptr;
 	}
+}
+
+void resetApplication() {
+	// Reset the score
+	score = 0;
+
+	// Reset the number of robots
+	robotCount = 3;
+
+	// Reset the defensive cannon
+	cannonDisabled = false;
+	cannonFadeProgress = 0.0f;
+	cannonColor[0] = green_mat_diffuse[0];
+	cannonColor[1] = green_mat_diffuse[1];
+	cannonColor[2] = green_mat_diffuse[2];
+	cannonColor[3] = green_mat_diffuse[3];
+
+	// Reinitialize robots and projectiles
+	initializeRobots();
+	initializeEnemyProjectiles();
+
+	// Clear defensive projectiles
+	defensiveProjectiles.clear();
+
+	// Trigger a redraw to reflect the reset state
+	glutPostRedisplay();
 }
 
 void initializeEnemyProjectiles() {
@@ -746,6 +774,11 @@ void updateCannonFade(int value) {
 		glutPostRedisplay();
 		glutTimerFunc(16, updateCannonFade, 0); // Call this function every 16ms (60 FPS)
 	}
+	else if (cannonDisabled && cannonFadeProgress >= 1.0f) {
+		// If the cannon is fully faded to black, mark the game as disabled
+		gameDisabled = true; // New variable to track game disabled state
+		glutPostRedisplay();
+	}
 }
 
 // Set up OpenGL. For viewport and projection setup see reshape().
@@ -866,6 +899,29 @@ void display(void) {
 	glPopMatrix();
 	glMatrixMode(GL_MODELVIEW);
 	glPopMatrix();
+
+	// Display "Press R to Reset" if the game is disabled
+	if (gameDisabled) {
+		glPushMatrix();
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		gluOrtho2D(0, vWidth, 0, vHeight);
+		glMatrixMode(GL_MODELVIEW);
+		glLoadIdentity();
+		glColor3f(1.0f, 0.0f, 0.0f); // Red text
+
+		std::string resetMessage = "Press R to Reset";
+		glRasterPos2f(vWidth / 2 - 100, vHeight / 2);
+		for (char c : resetMessage) {
+			glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, c);
+		}
+
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		glMatrixMode(GL_MODELVIEW);
+		glPopMatrix();
+	}
 
 	// Swap buffers
 	glutSwapBuffers();
@@ -1670,6 +1726,12 @@ void keyboard(unsigned char key, int x, int y)
 		spinCannon = !spinCannon;
 		if (spinCannon) {
 			glutTimerFunc(10, cannonAnimation, 0);
+		}
+		break;
+	case 'r': // Reset the game
+		if (gameDisabled) {
+			gameDisabled = false; // Exit the disabled state
+			resetApplication();  // Reset the game state
 		}
 		break;
 	default:
