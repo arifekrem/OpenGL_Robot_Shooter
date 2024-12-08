@@ -413,7 +413,7 @@ void drawDefensiveCannon() {
 	glPushMatrix();
 
 	// Adjust position and rotation relative to camera/scene
-	glTranslatef(0.0, -2.0, -5.0); // Place in front of the camera
+	glTranslatef(0.0, -5.0, -15.0); // Position closer to the camera (adjust as needed)
 	glRotatef(barrelYawAngle, 0.0, 1.0, 0.0);  // Horizontal rotation
 	glRotatef(barrelTiltAngle, 1.0, 0.0, 0.0); // Vertical tilt
 
@@ -423,7 +423,7 @@ void drawDefensiveCannon() {
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
 	glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
-	glScalef(2.0, 1.0, 2.0); // Scale the base
+	glScalef(4.0, 2.0, 4.0); // Scale the base for a larger appearance
 	glutSolidCube(1.0);
 	glPopMatrix();
 
@@ -433,20 +433,21 @@ void drawDefensiveCannon() {
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
 	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-	glTranslatef(0.0, 0.5, -1.5);  // Position barrel
-	gluCylinder(gluNewQuadric(), 0.5, 0.5, 3.0, 16, 16); // Barrel shape
+	glTranslatef(0.0, 1.0, -2.0);  // Position barrel closer to the center of the view
+	gluCylinder(gluNewQuadric(), 1.0, 1.0, 6.0, 16, 16); // Barrel shape
 	glPopMatrix();
 
 	glPopMatrix();
 }
 
 void fireDefensiveCannonProjectile() {
-	// Calculate direction based on the cannon's yaw and tilt angles
-	float dirX = sin(barrelYawAngle * M_PI / 180.0);
-	float dirY = sin(barrelTiltAngle * M_PI / 180.0);
-	float dirZ = -cos(barrelYawAngle * M_PI / 180.0);
+	// Calculate the direction vector from the barrel's angles
+	// Invert horizontal (yaw) and vertical (tilt) to align with mouse movement
+	float dirX = -sin(barrelYawAngle * M_PI / 180.0);  // Invert horizontal direction
+	float dirY = sin(barrelTiltAngle * M_PI / 180.0);  // Invert vertical direction
+	float dirZ = -cos(barrelYawAngle * M_PI / 180.0);  // Ensure projectiles fire away from the camera
 
-	// Normalize the direction vector to ensure consistent speed
+	// Normalize the direction vector
 	float magnitude = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
 	if (magnitude > 0.0f) {
 		dirX /= magnitude;
@@ -454,42 +455,49 @@ void fireDefensiveCannonProjectile() {
 		dirZ /= magnitude;
 	}
 
-	// Create a new projectile using direct initialization
+	// Create a new projectile
 	Projectile newProjectile;
 	newProjectile.x = 0.0;               // Cannon's origin position in world coordinates
-	newProjectile.y = -2.0;              // Match cannon's position
-	newProjectile.z = -5.0;              // Match cannon's position
-	newProjectile.directionX = dirX;     // Direction normalized
+	newProjectile.y = -5.0;              // Match cannon's position
+	newProjectile.z = -15.0;             // Match cannon's position
+	newProjectile.directionX = dirX;     // Corrected direction
 	newProjectile.directionY = dirY;
 	newProjectile.directionZ = dirZ;
 	newProjectile.speed = 1.0f;          // Set projectile speed
-	newProjectile.active = true;         // Activate the projectile
+	newProjectile.active = true;
 
 	// Add the projectile to the defensive projectiles vector
 	defensiveProjectiles.push_back(newProjectile);
 }
 
 void updateDefensiveProjectiles() {
-	for (auto& proj : defensiveProjectiles) {
-		if (proj.active) {
-			proj.x += proj.directionX * proj.speed;
-			proj.y += proj.directionY * proj.speed;
-			proj.z += proj.directionZ * proj.speed;
+	for (size_t i = 0; i < defensiveProjectiles.size(); ++i) {
+		if (defensiveProjectiles[i].active) {
+			// Update projectile position
+			defensiveProjectiles[i].x += defensiveProjectiles[i].directionX * defensiveProjectiles[i].speed;
+			defensiveProjectiles[i].y += defensiveProjectiles[i].directionY * defensiveProjectiles[i].speed;
+			defensiveProjectiles[i].z += defensiveProjectiles[i].directionZ * defensiveProjectiles[i].speed;
 
-			// Deactivate projectiles beyond a certain distance
-			if (fabs(proj.x) > 100 || fabs(proj.y) > 50 || fabs(proj.z) > 100) {
-				proj.active = false;
+			// Deactivate projectiles that go out of bounds
+			if (fabs(defensiveProjectiles[i].x) > 100 ||
+				fabs(defensiveProjectiles[i].y) > 50 ||
+				fabs(defensiveProjectiles[i].z) > 100) {
+				defensiveProjectiles[i].active = false;
 			}
 		}
 	}
 
 	// Remove inactive projectiles
-	defensiveProjectiles.erase(
-		std::remove_if(defensiveProjectiles.begin(), defensiveProjectiles.end(),
-			[](const Projectile& proj) { return !proj.active; }),
-		defensiveProjectiles.end()
-	);
+	for (auto it = defensiveProjectiles.begin(); it != defensiveProjectiles.end(); ) {
+		if (!it->active) {
+			it = defensiveProjectiles.erase(it);
+		}
+		else {
+			++it;
+		}
+	}
 }
+
 
 void drawDefensiveProjectiles() {
 	for (const auto& proj : defensiveProjectiles) {
@@ -1515,7 +1523,7 @@ void functionKeys(int key, int x, int y)
 
 void handleMouseClick(int button, int state, int x, int y) {
 	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		fireDefensiveCannonProjectile();  // Fire defensive laser
+		fireDefensiveCannonProjectile(); // Fire defensive projectile
 	}
 }
 
@@ -1523,13 +1531,22 @@ void handleMouseMotion(int x, int y) {
 	static int lastX = x, lastY = y;
 
 	// Adjust yaw (horizontal) and pitch (vertical) based on mouse movement
-	cameraYaw += (x - lastX) * 0.1f;
-	cameraPitch -= (y - lastY) * 0.1f;
+	float deltaX = (x - lastX) * 0.05f; // Reduced sensitivity
+	float deltaY = (y - lastY) * 0.05f;
 
-	// Clamp the pitch to avoid flipping the camera
-	if (cameraPitch > 89.0f) cameraPitch = 89.0f;
-	if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+	cameraYaw += deltaX;
+	cameraPitch -= deltaY;
 
+	// Clamp the pitch to avoid excessive tilt
+	const float maxPitch = 45.0f; // Maximum degrees to look up or down
+	if (cameraPitch > maxPitch) cameraPitch = maxPitch;
+	if (cameraPitch < -maxPitch) cameraPitch = -maxPitch;
+
+	// Sync cannon's barrel angles with camera's orientation
+	barrelYawAngle = -cameraYaw; // Reverse direction for intuitive alignment
+	barrelTiltAngle = cameraPitch;
+
+	// Save current mouse position
 	lastX = x;
 	lastY = y;
 
