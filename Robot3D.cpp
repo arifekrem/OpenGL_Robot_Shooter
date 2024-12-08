@@ -174,6 +174,7 @@ void fireProjectile(float startX, float startY, float startZ, float targetX, flo
 void fireRandomProjectiles(int value);
 void updateProjectiles(int value);
 void drawProjectiles();
+VECTOR3D getCannonWorldPosition(Robot robot);
 
 int main(int argc, char** argv)
 {
@@ -227,18 +228,24 @@ void initializeProjectiles() {
 	}
 }
 
-void fireProjectile(float startX, float startY, float startZ, float targetX, float targetY, float targetZ) {
+void fireProjectile(float startX, float startY, float startZ, float camDirX, float camDirY, float camDirZ) {
 	for (int i = 0; i < maxProjectiles; i++) {
-		if (!projectiles[i].active) { // Find an inactive projectile
+		if (!projectiles[i].active) {
 			// Set the initial position of the projectile
 			projectiles[i].x = startX;
 			projectiles[i].y = startY;
 			projectiles[i].z = startZ;
 
-			// Calculate the direction vector to the target
-			float dirX = targetX - startX;
-			float dirY = targetY - startY;
-			float dirZ = targetZ - startZ;
+			// Add slight random inaccuracy to the camera direction
+			float inaccuracy = 0.1f; // Degree of inaccuracy
+			float dirX = camDirX + (rand() % 100 / 500.0f - inaccuracy); // Random offset
+			float dirY = camDirY + (rand() % 100 / 500.0f - inaccuracy);
+			float dirZ = camDirZ + (rand() % 100 / 500.0f - inaccuracy);
+
+			// Negate the direction to ensure the projectiles move towards the front view camera
+			dirX = -dirX;
+			dirY = -dirY;
+			dirZ = -dirZ;
 
 			// Normalize the direction vector
 			float magnitude = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
@@ -247,28 +254,68 @@ void fireProjectile(float startX, float startY, float startZ, float targetX, flo
 				projectiles[i].directionY = dirY / magnitude;
 				projectiles[i].directionZ = dirZ / magnitude;
 			}
+			else {
+				// Default fallback direction if magnitude is zero
+				projectiles[i].directionX = 0.0f;
+				projectiles[i].directionY = 0.0f;
+				projectiles[i].directionZ = -1.0f;
+			}
 
-			projectiles[i].speed = 4.0f; // Speed for the laser
+			projectiles[i].speed = 0.5f; // Set speed for the projectile
 			projectiles[i].active = true;
-			break;
+
+			break; // Use only one projectile at a time
 		}
 	}
 }
 
+VECTOR3D getCannonWorldPosition(Robot robot) {
+	float rad = robot.direction * (M_PI / 180.0f); // Robot's facing direction in radians
+
+	// Start at robot's base position
+	float baseX = robot.xOffset;
+	float baseZ = robot.zOffset;
+
+	// Add upper body rotation
+	float bodyRotationRad = robotAngle * (M_PI / 180.0f);
+
+	// Cannon's local position relative to the robot's body
+	float cannonLocalX = -(0.5 * robotBodyWidth + gunWidth);
+	float cannonLocalY = 0.3 * robotBodyLength;
+	float cannonLocalZ = 0.5 * robotBodyDepth;
+
+	// Apply body rotation to cannon's local position
+	float cannonRotatedX = cannonLocalX * cos(bodyRotationRad) - cannonLocalZ * sin(bodyRotationRad);
+	float cannonRotatedZ = cannonLocalX * sin(bodyRotationRad) + cannonLocalZ * cos(bodyRotationRad);
+
+	// Compute the cannon's final world position
+	float cannonWorldX = baseX + cannonRotatedX;
+	float cannonWorldY = cannonLocalY;
+	float cannonWorldZ = baseZ + cannonRotatedZ;
+
+	return VECTOR3D(cannonWorldX, cannonWorldY, cannonWorldZ);
+}
+
+
 void fireRandomProjectiles(int value) {
+	// Define the front direction of the projectile
+	float projectileDirX = 0.0f, projectileDirY = 0.0f, projectileDirZ = -1.0f;
+
 	for (int i = 0; i < numRobots; i++) {
 		if (rand() % 100 < 20) { // 20% chance to fire
-			// Calculate the cannon tip position
-			float robotDirectionRad = robots[i].direction * M_PI / 180.0f;
-			float cannonTipX = robots[i].xOffset + cos(robotDirectionRad) * (0.5 * gunLength);
-			float cannonTipY = 1.5; // Adjust height of the cannon
-			float cannonTipZ = robots[i].zOffset + sin(robotDirectionRad) * (0.5 * gunLength);
+			// Get the cannon's world position
+			VECTOR3D cannonWorldPos = getCannonWorldPosition(robots[i]);
 
-			// Fire toward the front camera
-			fireProjectile(cannonTipX, cannonTipY, cannonTipZ, 0.0f, cannonTipY, 100.0f); // Front camera is along +Z
+			// Fire projectile from cannon's position
+			fireProjectile(
+				cannonWorldPos.x, cannonWorldPos.y, cannonWorldPos.z,
+				projectileDirX, projectileDirY, projectileDirZ
+			);
 		}
 	}
-	glutTimerFunc(500, fireRandomProjectiles, 0); // Repeat every 500ms
+
+	// Schedule next firing
+	glutTimerFunc(500, fireRandomProjectiles, 0);
 }
 
 void updateProjectiles(int value) {
@@ -296,50 +343,50 @@ void drawProjectiles() {
 		if (projectiles[i].active) {
 			glPushMatrix();
 
-			// Position the projectile in world space
+			// Position the projectile
 			glTranslatef(projectiles[i].x, projectiles[i].y, projectiles[i].z);
 
-			// Calculate rotation to align the laser with its direction vector
-			// Correct the rotation for front camera orientation
-			float angleXZ = atan2(projectiles[i].directionZ, projectiles[i].directionX) * 180.0 / M_PI;
-			float angleYZ = atan2(projectiles[i].directionY, sqrt(projectiles[i].directionX * projectiles[i].directionX + projectiles[i].directionZ * projectiles[i].directionZ)) * 180.0 / M_PI;
+			// Calculate the projectile's direction vector
+			VECTOR3D direction(
+				projectiles[i].directionX,
+				projectiles[i].directionY,
+				projectiles[i].directionZ
+			);
 
-			// Adjust rotation to ensure the tip points toward the front camera
-			glRotatef(angleXZ - 90.0f, 0.0f, 1.0f, 0.0f); // Rotate in XZ plane and correct for 90 degrees
-			glRotatef(-angleYZ, 1.0f, 0.0f, 0.0f);        // Rotate for Y-axis elevation
+			// Normalize the direction vector
+			float magnitude = sqrt(direction.x * direction.x +
+				direction.y * direction.y +
+				direction.z * direction.z);
+			if (magnitude > 0.0f) {
+				direction.x /= magnitude;
+				direction.y /= magnitude;
+				direction.z /= magnitude;
+			}
 
-			// Set material properties for the laser (red)
-			GLfloat laser_ambient[] = { 1.0f, 0.0f, 0.0f, 1.0f };
-			GLfloat laser_diffuse[] = { 1.0f, 0.2f, 0.2f, 1.0f };
-			GLfloat laser_specular[] = { 1.0f, 0.5f, 0.5f, 1.0f };
-			GLfloat laser_shininess[] = { 32.0f };
+			// Define an up vector and calculate the right vector
+			VECTOR3D up(0.0f, 1.0f, 0.0f);
+			if (fabs(direction.x) < 1e-6 && fabs(direction.z) < 1e-6) {
+				up = VECTOR3D(1.0f, 0.0f, 0.0f); // Prevent degenerate up vector
+			}
+			VECTOR3D right = cross(up, direction);
+			right = normalize(right);
+			up = cross(direction, right);
 
-			glMaterialfv(GL_FRONT, GL_AMBIENT, laser_ambient);
-			glMaterialfv(GL_FRONT, GL_DIFFUSE, laser_diffuse);
-			glMaterialfv(GL_FRONT, GL_SPECULAR, laser_specular);
-			glMaterialfv(GL_FRONT, GL_SHININESS, laser_shininess);
+			// Create a rotation matrix to orient the projectile
+			float rotationMatrix[16] = {
+				right.x,   right.y,   right.z,   0.0f,
+				up.x,      up.y,      up.z,      0.0f,
+				-direction.x, -direction.y, -direction.z, 0.0f,
+				0.0f,      0.0f,      0.0f,      1.0f
+			};
 
-			// Draw laser cylinder
+			// Apply the rotation matrix
+			glMultMatrixf(rotationMatrix);
+
+			// Draw the projectile as a cylinder
 			GLUquadric* quad = gluNewQuadric();
-			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16);
+			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16); // Thin, elongated cylinder
 			gluDeleteQuadric(quad);
-
-			// OPTIONAL: Draw glowing tip
-			glPushMatrix();
-			glTranslatef(0.0f, 0.0f, 3.0f); // Move to the tip of the laser
-			GLfloat glow_ambient[] = { 1.0f, 0.2f, 0.2f, 0.5f }; // Slightly transparent glow
-			GLfloat glow_diffuse[] = { 1.0f, 0.3f, 0.3f, 0.5f };
-			GLfloat glow_specular[] = { 1.0f, 0.4f, 0.4f, 0.5f };
-			GLfloat glow_shininess[] = { 10.0f };
-
-			glMaterialfv(GL_FRONT, GL_AMBIENT, glow_ambient);
-			glMaterialfv(GL_FRONT, GL_DIFFUSE, glow_diffuse);
-			glMaterialfv(GL_FRONT, GL_SPECULAR, glow_specular);
-			glMaterialfv(GL_FRONT, GL_SHININESS, glow_shininess);
-
-			// Draw a small sphere for the glowing tip
-			glutSolidSphere(0.2f, 16, 16);
-			glPopMatrix();
 
 			glPopMatrix();
 		}

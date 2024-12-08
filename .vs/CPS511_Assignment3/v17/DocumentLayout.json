@@ -5,6 +5,14 @@
     {
       "AbsoluteMoniker": "D:0:0:{A2A2DA67-69B4-427E-BE1F-2F2ADD42ADB9}|CPS511_Assignment3.vcxproj|C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\Robot3D.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A2A2DA67-69B4-427E-BE1F-2F2ADD42ADB9}|CPS511_Assignment3.vcxproj|solutionrelative:Robot3D.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2A2DA67-69B4-427E-BE1F-2F2ADD42ADB9}|CPS511_Assignment3.vcxproj|C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\QuadMesh.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2A2DA67-69B4-427E-BE1F-2F2ADD42ADB9}|CPS511_Assignment3.vcxproj|solutionrelative:QuadMesh.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2A2DA67-69B4-427E-BE1F-2F2ADD42ADB9}|CPS511_Assignment3.vcxproj|C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\VECTOR3D.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A2A2DA67-69B4-427E-BE1F-2F2ADD42ADB9}|CPS511_Assignment3.vcxproj|solutionrelative:VECTOR3D.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,8 +22,34 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 2,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "QuadMesh.cpp",
+              "DocumentMoniker": "C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\QuadMesh.cpp",
+              "RelativeDocumentMoniker": "QuadMesh.cpp",
+              "ToolTip": "C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\QuadMesh.cpp",
+              "RelativeToolTip": "QuadMesh.cpp",
+              "ViewState": "AgIAAM4AAAAAAAAAAAAqwNoAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2024-12-08T01:15:28.467Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "VECTOR3D.h",
+              "DocumentMoniker": "C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\VECTOR3D.h",
+              "RelativeDocumentMoniker": "VECTOR3D.h",
+              "ToolTip": "C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\VECTOR3D.h",
+              "RelativeToolTip": "VECTOR3D.h",
+              "ViewState": "AgIAAHwAAAAAAAAAAAAqwIUAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2024-12-08T01:14:14.112Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -24,7 +58,7 @@
               "RelativeDocumentMoniker": "Robot3D.cpp",
               "ToolTip": "C:\\Users\\Alden\\Desktop\\CPS511\\Assignment 3\\CPS511A3\\Robot3D.cpp",
               "RelativeToolTip": "Robot3D.cpp",
-              "ViewState": "AgIAADwBAAAAAAAAAAAkwFoBAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAHoFAAAAAAAAAAAqwIsFAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2024-12-07T00:05:09.054Z",
               "EditorCaption": ""
