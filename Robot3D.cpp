@@ -65,6 +65,14 @@ float gunAngle = -25.0;
 float robotZOffset = 0.0f; // Movement offset along the z-axis
 bool movingForward = true; // Flag to control movement direction
 
+float barrelYawAngle = 0.0f;  // Rotation left/right
+float barrelTiltAngle = 0.0f; // Tilt up/down
+
+float cameraX = 0.0f, cameraY = 15.0f, cameraZ = 100.0f; // Initial camera position
+float cameraYaw = 0.0f;   // Horizontal rotation
+float cameraPitch = 0.0f; // Vertical rotation
+float cameraDistance = 100.0f; // Distance from the target (cannon)
+bool cannonDisabled = false; // Initially, the cannon is enabled
 
 // Lighting/shading and material properties for robot - upcoming lecture - just copy for now
 // Robot RGBA material properties (NOTE: we will learn about this later in the semester)
@@ -144,6 +152,8 @@ struct Projectile {
 const int maxProjectiles = 10; // Max number of projectiles
 Projectile projectiles[maxProjectiles];
 
+std::vector<Projectile> defensiveProjectiles; // For defensive cannon projectiles
+
 float spacing = 20.0f;
 const int numRobots = 3;
 Robot robots[numRobots];
@@ -155,8 +165,8 @@ int meshSize = 16;
 void initOpenGL(int w, int h);
 void display(void);
 void reshape(int w, int h);
-void mouse(int button, int state, int x, int y);
-void mouseMotionHandler(int xMouse, int yMouse);
+void handleMouseClick(int button, int state, int x, int y);
+void handleMouseMotion(int x, int y);
 void keyboard(unsigned char key, int x, int y);
 void functionKeys(int key, int x, int y);
 void animationHandler(int param);
@@ -169,12 +179,18 @@ void drawRightArm();
 void moveRobots(int value);
 void stepAnimation(int value);
 void initializeRobots();
-void initializeProjectiles();
-void fireProjectile(float startX, float startY, float startZ, float targetX, float targetY, float targetZ);
-void fireRandomProjectiles(int value);
-void updateProjectiles(int value);
-void drawProjectiles();
+void initializeEnemyProjectiles();
+void fireEnemyProjectile(float startX, float startY, float startZ, float targetX, float targetY, float targetZ);
+void fireRandomEnemyProjectiles(int value);
+void updateEnemyProjectiles(int value);
+void drawEnemyProjectiles();
 VECTOR3D getCannonWorldPosition(Robot robot);
+void drawDefensiveCannon();
+void fireDefensiveCannonProjectile();
+void updateDefensiveProjectiles();
+void drawDefensiveProjectiles();
+void checkCannonHit();
+void updateDefensiveProjectilesTimer(int value);
 
 int main(int argc, char** argv)
 {
@@ -187,7 +203,7 @@ int main(int argc, char** argv)
 
 	// Initialize robots & projectiles
 	initializeRobots();
-	initializeProjectiles();
+	initializeEnemyProjectiles();
 
 	// Initialize GL
 	initOpenGL(vWidth, vHeight);
@@ -195,8 +211,8 @@ int main(int argc, char** argv)
 	// Register callback functions
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
-	glutMouseFunc(mouse);
-	glutMotionFunc(mouseMotionHandler);
+	glutMouseFunc(handleMouseClick);
+	glutPassiveMotionFunc(handleMouseMotion);
 	glutKeyboardFunc(keyboard);
 	glutSpecialFunc(functionKeys);
 
@@ -204,8 +220,9 @@ int main(int argc, char** argv)
 	walking = true;  // Start walking animation automatically
 	glutTimerFunc(16, moveRobots, 0);  // Start robot movement animation
 	glutTimerFunc(10, stepAnimation, 0);  // Start walking animation
-	glutTimerFunc(16, updateProjectiles, 0);
-	glutTimerFunc(500, fireRandomProjectiles, 0);
+	glutTimerFunc(16, updateEnemyProjectiles, 0);  // Start updating all projectiles
+	glutTimerFunc(16, updateDefensiveProjectilesTimer, 0);
+	glutTimerFunc(500, fireRandomEnemyProjectiles, 0);
 
 	// Start event loop, never returns
 	glutMainLoop();
@@ -222,13 +239,13 @@ void initializeRobots() {
 	}
 }
 
-void initializeProjectiles() {
+void initializeEnemyProjectiles() {
 	for (int i = 0; i < maxProjectiles; i++) {
 		projectiles[i].active = false; // Initially, all projectiles are inactive
 	}
 }
 
-void fireProjectile(float startX, float startY, float startZ, float camDirX, float camDirY, float camDirZ) {
+void fireEnemyProjectile(float startX, float startY, float startZ, float camDirX, float camDirY, float camDirZ) {
 	for (int i = 0; i < maxProjectiles; i++) {
 		if (!projectiles[i].active) {
 			// Set the initial position of the projectile
@@ -270,25 +287,23 @@ void fireProjectile(float startX, float startY, float startZ, float camDirX, flo
 }
 
 VECTOR3D getCannonWorldPosition(Robot robot) {
-	float rad = robot.direction * (M_PI / 180.0f); // Robot's facing direction in radians
-
-	// Start at robot's base position
+	float rad = robot.direction * (M_PI / 180.0f);
 	float baseX = robot.xOffset;
 	float baseZ = robot.zOffset;
 
-	// Add upper body rotation
+	// Body rotation
 	float bodyRotationRad = robotAngle * (M_PI / 180.0f);
 
-	// Cannon's local position relative to the robot's body
+	// Cannon's position relative to the body
 	float cannonLocalX = -(0.5 * robotBodyWidth + gunWidth);
 	float cannonLocalY = 0.3 * robotBodyLength;
 	float cannonLocalZ = 0.5 * robotBodyDepth;
 
-	// Apply body rotation to cannon's local position
+	// Apply body rotation
 	float cannonRotatedX = cannonLocalX * cos(bodyRotationRad) - cannonLocalZ * sin(bodyRotationRad);
 	float cannonRotatedZ = cannonLocalX * sin(bodyRotationRad) + cannonLocalZ * cos(bodyRotationRad);
 
-	// Compute the cannon's final world position
+	// Compute world position
 	float cannonWorldX = baseX + cannonRotatedX;
 	float cannonWorldY = cannonLocalY;
 	float cannonWorldZ = baseZ + cannonRotatedZ;
@@ -296,32 +311,25 @@ VECTOR3D getCannonWorldPosition(Robot robot) {
 	return VECTOR3D(cannonWorldX, cannonWorldY, cannonWorldZ);
 }
 
-
-void fireRandomProjectiles(int value) {
-	// Define the front direction of the projectile
+void fireRandomEnemyProjectiles(int value) {
 	float projectileDirX = 0.0f, projectileDirY = 0.0f, projectileDirZ = -1.0f;
 
 	for (int i = 0; i < numRobots; i++) {
 		if (rand() % 100 < 20) { // 20% chance to fire
-			// Get the cannon's world position
 			VECTOR3D cannonWorldPos = getCannonWorldPosition(robots[i]);
-
-			// Fire projectile from cannon's position
-			fireProjectile(
+			fireEnemyProjectile(
 				cannonWorldPos.x, cannonWorldPos.y, cannonWorldPos.z,
 				projectileDirX, projectileDirY, projectileDirZ
 			);
 		}
 	}
 
-	// Schedule next firing
-	glutTimerFunc(500, fireRandomProjectiles, 0);
+	glutTimerFunc(500, fireRandomEnemyProjectiles, 0);
 }
 
-void updateProjectiles(int value) {
+void updateEnemyProjectiles(int value) {
 	for (int i = 0; i < maxProjectiles; i++) {
 		if (projectiles[i].active) {
-			// Update position based on direction and speed
 			projectiles[i].x += projectiles[i].directionX * projectiles[i].speed;
 			projectiles[i].y += projectiles[i].directionY * projectiles[i].speed;
 			projectiles[i].z += projectiles[i].directionZ * projectiles[i].speed;
@@ -335,10 +343,16 @@ void updateProjectiles(int value) {
 		}
 	}
 	glutPostRedisplay();
-	glutTimerFunc(16, updateProjectiles, 0); // Repeat every 16ms (~60 FPS)
+	glutTimerFunc(16, updateEnemyProjectiles, 0);
 }
 
-void drawProjectiles() {
+void updateDefensiveProjectilesTimer(int value) {
+	updateDefensiveProjectiles();  // Update positions of defensive projectiles
+	glutPostRedisplay();           // Trigger a redraw
+	glutTimerFunc(16, updateDefensiveProjectilesTimer, 0);  // Schedule the next update
+}
+
+void drawEnemyProjectiles() {
 	for (int i = 0; i < maxProjectiles; i++) {
 		if (projectiles[i].active) {
 			glPushMatrix();
@@ -393,6 +407,115 @@ void drawProjectiles() {
 	}
 }
 
+void drawDefensiveCannon() {
+	if (cannonDisabled) return;
+
+	glPushMatrix();
+
+	// Adjust position and rotation relative to camera/scene
+	glTranslatef(0.0, -2.0, -5.0); // Place in front of the camera
+	glRotatef(barrelYawAngle, 0.0, 1.0, 0.0);  // Horizontal rotation
+	glRotatef(barrelTiltAngle, 1.0, 0.0, 0.0); // Vertical tilt
+
+	// Draw cannon base
+	glPushMatrix();
+	glMaterialfv(GL_FRONT, GL_AMBIENT, dark_grey_ambient);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
+	glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
+	glScalef(2.0, 1.0, 2.0); // Scale the base
+	glutSolidCube(1.0);
+	glPopMatrix();
+
+	// Draw cannon barrel
+	glPushMatrix();
+	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
+	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
+	glTranslatef(0.0, 0.5, -1.5);  // Position barrel
+	gluCylinder(gluNewQuadric(), 0.5, 0.5, 3.0, 16, 16); // Barrel shape
+	glPopMatrix();
+
+	glPopMatrix();
+}
+
+void fireDefensiveCannonProjectile() {
+	// Calculate direction based on the cannon's yaw and tilt angles
+	float dirX = sin(barrelYawAngle * M_PI / 180.0);
+	float dirY = sin(barrelTiltAngle * M_PI / 180.0);
+	float dirZ = -cos(barrelYawAngle * M_PI / 180.0);
+
+	// Normalize the direction vector to ensure consistent speed
+	float magnitude = sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+	if (magnitude > 0.0f) {
+		dirX /= magnitude;
+		dirY /= magnitude;
+		dirZ /= magnitude;
+	}
+
+	// Create a new projectile using direct initialization
+	Projectile newProjectile;
+	newProjectile.x = 0.0;               // Cannon's origin position in world coordinates
+	newProjectile.y = -2.0;              // Match cannon's position
+	newProjectile.z = -5.0;              // Match cannon's position
+	newProjectile.directionX = dirX;     // Direction normalized
+	newProjectile.directionY = dirY;
+	newProjectile.directionZ = dirZ;
+	newProjectile.speed = 1.0f;          // Set projectile speed
+	newProjectile.active = true;         // Activate the projectile
+
+	// Add the projectile to the defensive projectiles vector
+	defensiveProjectiles.push_back(newProjectile);
+}
+
+void updateDefensiveProjectiles() {
+	for (auto& proj : defensiveProjectiles) {
+		if (proj.active) {
+			proj.x += proj.directionX * proj.speed;
+			proj.y += proj.directionY * proj.speed;
+			proj.z += proj.directionZ * proj.speed;
+
+			// Deactivate projectiles beyond a certain distance
+			if (fabs(proj.x) > 100 || fabs(proj.y) > 50 || fabs(proj.z) > 100) {
+				proj.active = false;
+			}
+		}
+	}
+
+	// Remove inactive projectiles
+	defensiveProjectiles.erase(
+		std::remove_if(defensiveProjectiles.begin(), defensiveProjectiles.end(),
+			[](const Projectile& proj) { return !proj.active; }),
+		defensiveProjectiles.end()
+	);
+}
+
+void drawDefensiveProjectiles() {
+	for (const auto& proj : defensiveProjectiles) {
+		if (proj.active) {
+			glPushMatrix();
+			glTranslatef(proj.x, proj.y, proj.z);
+			glColor3f(0.0, 1.0, 0.0);  // Green for defensive projectiles
+			glutSolidSphere(0.3, 16, 16);
+			glPopMatrix();
+		}
+	}
+}
+
+void checkCannonHit() {
+	for (int i = 0; i < maxProjectiles; i++) {
+		if (projectiles[i].active) {
+			if (fabs(projectiles[i].x) < 2.0f &&
+				fabs(projectiles[i].y + 2.0f) < 1.0f &&
+				fabs(projectiles[i].z + 5.0f) < 1.0f) { // Adjust collision bounds
+				cannonDisabled = true;  // Disable cannon
+				spinCannon = false;     // Stop cannon animation
+			}
+		}
+	}
+}
+
 // Set up OpenGL. For viewport and projection setup see reshape().
 void initOpenGL(int w, int h)
 {
@@ -439,46 +562,42 @@ void initOpenGL(int w, int h)
 
 }
 
-void display(void)
-{
+void display(void) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glLoadIdentity();
 
-	// Change camera position based on selected view
-	switch (cameraView) {
-	case 0: // Default (isometric view)
-		gluLookAt(35.0, 20.0, 35.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-		break;
-	case 1: // Front view
-		gluLookAt(0.0, 15.0, 100.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-		break;
-	case 2: // Side view
-		gluLookAt(50.0, 15.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
-		break;
-	case 3: // Top-down view
-		gluLookAt(0.0, 50.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0);
-		break;
-	}
+	// Calculate the camera position based on yaw and pitch
+	float camDirX = sin(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
+	float camDirY = sin(cameraPitch * M_PI / 180.0);
+	float camDirZ = -cos(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
 
+	float cameraTargetX = cameraX + camDirX;
+	float cameraTargetY = cameraY + camDirY;
+	float cameraTargetZ = cameraZ + camDirZ;
+
+	// Set the camera's view
+	gluLookAt(cameraX, cameraY, cameraZ, cameraTargetX, cameraTargetY, cameraTargetZ, 0.0f, 1.0f, 0.0f);
+
+	// Draw robots, environment, and projectiles
 	for (int i = 0; i < numRobots; i++) {
 		glPushMatrix();
-		// Position each robot along the x-axis and add movement along the z-axis
 		glTranslatef(robots[i].xOffset, 0.0, robots[i].zOffset);
 		drawRobot();
 		glPopMatrix();
 	}
 
-	drawProjectiles();
+	drawEnemyProjectiles();
+	drawDefensiveProjectiles();
+	drawDefensiveCannon();
 
-	// Draw ground (lowered further)
+	// Draw ground
 	glPushMatrix();
-	glTranslatef(0.0, -25.0, 0.0);  // Lowered the ground to -30.0
+	glTranslatef(0.0, -25.0, 0.0);
 	groundMesh->DrawMesh(meshSize);
 	glPopMatrix();
 
-	glutSwapBuffers();   // Double buffering, swap buffers
+	glutSwapBuffers();
 }
-
 
 void drawRobot()
 {
@@ -1394,40 +1513,25 @@ void functionKeys(int key, int x, int y)
 	glutPostRedisplay();   // Trigger redraw to apply changes
 }
 
-// Mouse button callback - use only if you want to
-void mouse(int button, int state, int x, int y)
-{
-	currentButton = button;
-
-	switch (button)
-	{
-	case GLUT_LEFT_BUTTON:
-		if (state == GLUT_DOWN)
-		{
-			;
-
-		}
-		break;
-	case GLUT_RIGHT_BUTTON:
-		if (state == GLUT_DOWN)
-		{
-			;
-		}
-		break;
-	default:
-		break;
+void handleMouseClick(int button, int state, int x, int y) {
+	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+		fireDefensiveCannonProjectile();  // Fire defensive laser
 	}
-
-	glutPostRedisplay();   // Trigger a window redisplay
 }
 
-// Mouse motion callback - use only if you want to
-void mouseMotionHandler(int xMouse, int yMouse)
-{
-	if (currentButton == GLUT_LEFT_BUTTON)
-	{
-		;
-	}
+void handleMouseMotion(int x, int y) {
+	static int lastX = x, lastY = y;
 
-	glutPostRedisplay();   // Trigger a window redisplay
+	// Adjust yaw (horizontal) and pitch (vertical) based on mouse movement
+	cameraYaw += (x - lastX) * 0.1f;
+	cameraPitch -= (y - lastY) * 0.1f;
+
+	// Clamp the pitch to avoid flipping the camera
+	if (cameraPitch > 89.0f) cameraPitch = 89.0f;
+	if (cameraPitch < -89.0f) cameraPitch = -89.0f;
+
+	lastX = x;
+	lastY = y;
+
+	glutPostRedisplay();
 }
