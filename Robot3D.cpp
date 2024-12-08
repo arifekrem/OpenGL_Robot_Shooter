@@ -123,6 +123,11 @@ GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
 GLfloat light_specular[] = { 1.0, 1.0, 1.0, 1.0 };
 GLfloat light_ambient[] = { 0.2F, 0.2F, 0.2F, 1.0F };
 
+GLfloat neon_green_ambient[] = { 0.0f, 0.8f, 0.0f, 1.0f };
+GLfloat neon_green_diffuse[] = { 0.0f, 1.0f, 0.0f, 1.0f };
+GLfloat neon_green_specular[] = { 0.5f, 1.0f, 0.5f, 1.0f };
+GLfloat neon_green_shininess[] = { 100.0f };
+
 // Mouse button
 int currentButton;
 
@@ -520,14 +525,60 @@ void updateDefensiveProjectiles() {
 	}
 }
 
-
 void drawDefensiveProjectiles() {
 	for (const auto& proj : defensiveProjectiles) {
 		if (proj.active) {
 			glPushMatrix();
+
+			// Position the projectile
 			glTranslatef(proj.x, proj.y, proj.z);
-			glColor3f(0.0, 1.0, 0.0);  // Green for defensive projectiles
-			glutSolidSphere(0.3, 16, 16);
+
+			// Calculate the projectile's direction vector
+			VECTOR3D direction(
+				proj.directionX,
+				proj.directionY,
+				proj.directionZ
+			);
+
+			// Normalize the direction vector
+			float magnitude = sqrt(direction.x * direction.x +
+				direction.y * direction.y +
+				direction.z * direction.z);
+			if (magnitude > 0.0f) {
+				direction.x /= magnitude;
+				direction.y /= magnitude;
+				direction.z /= magnitude;
+			}
+
+			// Define an up vector and calculate the right vector
+			VECTOR3D up(0.0f, 1.0f, 0.0f);
+			if (fabs(direction.x) < 1e-6 && fabs(direction.z) < 1e-6) {
+				up = VECTOR3D(1.0f, 0.0f, 0.0f); // Prevent degenerate up vector
+			}
+			VECTOR3D right = cross(up, direction);
+			right = normalize(right);
+			up = cross(direction, right);
+
+			// Create a rotation matrix to orient the projectile
+			float rotationMatrix[16] = {
+				right.x,   right.y,   right.z,   0.0f,
+				up.x,      up.y,      up.z,      0.0f,
+				-direction.x, -direction.y, -direction.z, 0.0f,
+				0.0f,      0.0f,      0.0f,      1.0f
+			};
+
+			// Apply the rotation matrix
+			glMultMatrixf(rotationMatrix);
+
+			// Draw the projectile as a neon green cylinder
+			GLUquadric* quad = gluNewQuadric();
+			glMaterialfv(GL_FRONT, GL_AMBIENT, neon_green_ambient);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, neon_green_diffuse);
+			glMaterialfv(GL_FRONT, GL_SPECULAR, neon_green_specular);
+			glMaterialfv(GL_FRONT, GL_SHININESS, neon_green_shininess);
+			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16); // Thin, elongated cylinder
+			gluDeleteQuadric(quad);
+
 			glPopMatrix();
 		}
 	}
