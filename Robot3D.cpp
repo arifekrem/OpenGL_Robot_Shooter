@@ -10,6 +10,8 @@
 #include <vector>
 #include "VECTOR3D.h"
 #include "QuadMesh.h"
+#include <string>
+#include <sstream>
 #define M_PI 3.14159265358979323846
 
 const int vWidth = 650;    // Viewport width in pixels
@@ -133,6 +135,9 @@ GLfloat neon_green_shininess[] = { 100.0f };
 // Mouse button
 int currentButton;
 
+int score = 0;
+int robotCount = 3;
+
 // A flat open mesh
 QuadMesh* groundMesh = NULL;
 
@@ -165,7 +170,7 @@ std::vector<Projectile> defensiveProjectiles; // For defensive cannon projectile
 
 float spacing = 20.0f;
 const int numRobots = 3;
-Robot robots[numRobots];
+Robot* robots = nullptr;
 
 // Default Mesh Size
 int meshSize = 16;
@@ -202,6 +207,8 @@ void updateDefensiveProjectilesTimer(int value);
 bool detectDefensiveLaserCollisionWithBot(const Projectile& defensiveLaser, const Robot& enemyBot);
 void drawRobotWithBreakingAnimation(const Robot& enemyBot);
 void updateCannonFade(int value);
+void resetRobots();
+void cleanupRobots();
 
 int main(int argc, char** argv)
 {
@@ -236,18 +243,41 @@ int main(int argc, char** argv)
 
 	// Start event loop, never returns
 	glutMainLoop();
+	cleanupRobots();
 
 	return 0;
 }
 
 void initializeRobots() {
-	for (int i = 0; i < numRobots; i++) {
-		robots[i].xOffset = (i - (numRobots - 1) * 0.5f) * 20.0f; // Spaced along x-axis
-		robots[i].zOffset = 0.0f; // Start at the same z-axis position
-		robots[i].speed = 0.1f + 0.05f * i; // Slightly different speeds
-		robots[i].direction = 0.0f; // All initially walking straight
-		robots[i].disabled = false; // Not disabled initially
-		robots[i].breakingTimer = 0; // No animation initially
+	// Deallocate existing robot array if necessary
+	if (robots != nullptr) {
+		delete[] robots;
+	}
+
+	// Allocate memory for the new number of robots
+	robots = new Robot[robotCount];
+
+	for (int i = 0; i < robotCount; i++) {
+		robots[i].xOffset = (i - (robotCount - 1) * 0.5f) * spacing; // Space them evenly along x-axis
+		robots[i].zOffset = 0.0f;                                   // Start at the same z-axis position
+		robots[i].speed = 0.1f + 0.05f * i;                         // Slightly different speeds
+		robots[i].direction = 0.0f;                                 // All initially walking straight
+		robots[i].disabled = false;                                 // Not disabled initially
+		robots[i].breakingTimer = 0;                                // No animation initially
+	}
+}
+
+void resetRobots() {
+	robotCount++;          // Increase the number of robots
+	score++;               // Increment the score
+	initializeRobots();    // Reinitialize the robots with the updated count
+}
+
+void cleanupRobots() {
+	// Clean up dynamically allocated robot memory
+	if (robots != nullptr) {
+		delete[] robots;
+		robots = nullptr;
 	}
 }
 
@@ -778,7 +808,7 @@ void display(void) {
 	}
 
 	// Draw robots
-	for (int i = 0; i < numRobots; i++) {
+	for (int i = 0; i < robotCount; i++) {
 		if (robots[i].disabled) {
 			drawRobotWithBreakingAnimation(robots[i]); // Draw breaking animation for disabled robots
 		}
@@ -805,9 +835,30 @@ void display(void) {
 	groundMesh->DrawMesh(meshSize);
 	glPopMatrix();
 
-	// Additional rendering elements (if any)
-	// Add any further components to be rendered here, if needed.
+	// Display the score
+	glPushMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glLoadIdentity();
+	gluOrtho2D(0, vWidth, 0, vHeight); // Set orthographic projection for 2D text
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	glColor3f(1.0f, 1.0f, 1.0f); // Set text color to white
 
+	glRasterPos2f(vWidth - 100, vHeight - 30);
+	std::ostringstream scoreStream;
+	scoreStream << "Score: " << score;
+	std::string scoreText = scoreStream.str();
+	for (char c : scoreText) {
+		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, c);
+	}
+
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
+
+	// Swap buffers
 	glutSwapBuffers();
 }
 
@@ -1433,7 +1484,9 @@ void reshape(int w, int h)
 }
 
 void moveRobots(int value) {
-	for (int i = 0; i < numRobots; i++) {
+	int disabledCount = 0;
+
+	for (int i = 0; i < robotCount; i++) {
 		if (robots[i].disabled) {
 			if (robots[i].breakingTimer > 0) {
 				robots[i].breakingTimer--; // Count down breaking animation timer
@@ -1442,6 +1495,7 @@ void moveRobots(int value) {
 				robots[i].xOffset = 1000.0f; // Move robot far off-screen
 				robots[i].zOffset = 1000.0f; // Prevent further interaction
 			}
+			disabledCount++; // Count disabled robots
 			continue; // Skip further processing for disabled robots
 		}
 
@@ -1461,6 +1515,11 @@ void moveRobots(int value) {
 		if (robots[i].xOffset > 50.0f || robots[i].xOffset < -50.0f) {
 			robots[i].direction += 180.0f; // Reverse direction
 		}
+	}
+
+	// If all robots are disabled, reset them
+	if (disabledCount == robotCount) {
+		resetRobots();
 	}
 
 	glutPostRedisplay();
@@ -1743,11 +1802,16 @@ void handleMouseMotion(int x, int y) {
 	static int lastX = x, lastY = y;
 
 	// Adjust yaw (horizontal) and pitch (vertical) based on mouse movement
-	float deltaX = (x - lastX) * 0.05f; // Reduced sensitivity
+	float deltaX = (x - lastX) * 0.05f; // Adjust sensitivity if needed
 	float deltaY = (y - lastY) * 0.05f;
 
 	cameraYaw += deltaX;
 	cameraPitch -= deltaY;
+
+	// Adjust the range of cameraYaw to allow further left/right movement
+	const float maxYaw = 100.0f; // Allow more left/right rotation
+	if (cameraYaw > maxYaw) cameraYaw = maxYaw;
+	if (cameraYaw < -maxYaw) cameraYaw = -maxYaw;
 
 	// Clamp the pitch to avoid excessive tilt
 	const float maxPitch = 45.0f; // Maximum degrees to look up or down
