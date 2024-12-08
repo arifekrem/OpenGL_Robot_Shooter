@@ -174,7 +174,6 @@ int meshSize = 16;
 void initOpenGL(int w, int h);
 void display(void);
 void reshape(int w, int h);
-void handleMouseClick(int button, int state, int x, int y);
 void handleMouseMotion(int x, int y);
 void keyboard(unsigned char key, int x, int y);
 void functionKeys(int key, int x, int y);
@@ -223,7 +222,6 @@ int main(int argc, char** argv)
 	// Register callback functions
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
-	glutMouseFunc(handleMouseClick);
 	glutPassiveMotionFunc(handleMouseMotion);
 	glutKeyboardFunc(keyboard);
 	glutSpecialFunc(functionKeys);
@@ -1557,6 +1555,9 @@ void keyboard(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
+	case ' ':  // Spacebar pressed
+		fireDefensiveCannonProjectile(); // Fire defensive projectile
+		break;
 	case 'k':  // Control left knee
 		selectedJoint = 1;  // Select knee joint
 		break;
@@ -1736,12 +1737,6 @@ void functionKeys(int key, int x, int y)
 		break;
 	}
 	glutPostRedisplay();   // Trigger redraw to apply changes
-}
-
-void handleMouseClick(int button, int state, int x, int y) {
-	if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-		fireDefensiveCannonProjectile(); // Fire defensive projectile
-	}
 }
 
 void handleMouseMotion(int x, int y) {
