@@ -420,6 +420,9 @@ void fireEnemyProjectile(float startX, float startY, float startZ, float camDirX
 			float dirY = camDirY + (rand() % 100 / 500.0f - inaccuracy);
 			float dirZ = camDirZ + (rand() % 100 / 500.0f - inaccuracy);
 
+			// Adjust trajectory slightly upward
+			dirY -= 0.3f; // Fine-tune this value as needed
+
 			// Negate the direction to ensure the projectiles move towards defensive cannon
 			dirX = -dirX;
 			dirY = -dirY;
@@ -466,13 +469,16 @@ VECTOR3D getCannonWorldPosition(Robot robot) {
 
 	float bodyRotationRad = robotAngle * (M_PI / 180.0f);
 
-	float cannonLocalX = -(0.5 * robotBodyWidth + gunWidth);
-	float cannonLocalY = 0.3 * robotBodyLength;
-	float cannonLocalZ = 0.5 * robotBodyDepth;
+	// Adjust cannon's local position for better perspective alignment
+	float cannonLocalX = -(0.5 * robotBodyWidth + gunWidth * 0.7);
+	float cannonLocalY = 0.3 * robotBodyLength - 0.8 * upperArmLength;
+	float cannonLocalZ = 1.3 * robotBodyDepth + gunLength;
 
+	// Rotate the cannon position based on the robot's body rotation
 	float cannonRotatedX = cannonLocalX * cos(bodyRotationRad) - cannonLocalZ * sin(bodyRotationRad);
 	float cannonRotatedZ = cannonLocalX * sin(bodyRotationRad) + cannonLocalZ * cos(bodyRotationRad);
 
+	// Calculate the final world position
 	float cannonWorldX = baseX + cannonRotatedX;
 	float cannonWorldY = cannonLocalY;
 	float cannonWorldZ = baseZ + cannonRotatedZ;
