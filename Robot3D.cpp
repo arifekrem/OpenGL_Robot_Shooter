@@ -13,6 +13,11 @@
 #include <string>
 #include <sstream>
 #define M_PI 3.14159265358979323846
+#include <wchar.h>
+#include <iostream>
+#include <cstdio>
+
+GLuint robotTexture, cannonBaseTexture, cannonBarrelTexture;
 
 const int vWidth = 650;    // Viewport width in pixels
 const int vHeight = 500;    // Viewport height in pixels
@@ -210,6 +215,8 @@ void resetRobots();
 void cleanupRobots();
 void resetApplication();
 bool gameDisabled = false;
+GLuint createCheckerboardTexture();
+GLuint createMetallicTexture();
 
 int main(int argc, char** argv)
 {
@@ -247,6 +254,162 @@ int main(int argc, char** argv)
 	cleanupRobots();
 
 	return 0;
+}
+
+GLuint createCheckerboardTexture() {
+	const int width = 64, height = 64;
+	unsigned char data[width * height * 3];
+
+	for (int i = 0; i < width; ++i) {
+		for (int j = 0; j < height; ++j) {
+			int index = (i + j * width) * 3;
+			bool checker = (i / 8 % 2 == j / 8 % 2);
+			data[index] = checker ? 255 : 0;   // Red
+			data[index + 1] = checker ? 255 : 0; // Green
+			data[index + 2] = checker ? 255 : 0; // Blue
+		}
+	}
+
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return textureID;
+}
+
+GLuint createMetallicTexture() {
+	const int width = 64, height = 64;
+	unsigned char data[width * height * 3];
+
+	for (int i = 0; i < width; ++i) {
+		for (int j = 0; j < height; ++j) {
+			int index = (i + j * width) * 3;
+			unsigned char grayValue = (i + j) % 128 + 100; // Smooth gradient with metallic sheen
+			data[index] = grayValue;   // Red
+			data[index + 1] = grayValue; // Green
+			data[index + 2] = grayValue; // Blue
+		}
+	}
+
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return textureID;
+}
+
+GLuint createDarkGrayTexture() {
+	const int width = 64, height = 64;
+	unsigned char data[width * height * 3];
+
+	for (int i = 0; i < width; ++i) {
+		for (int j = 0; j < height; ++j) {
+			int index = (i + j * width) * 3;
+			unsigned char grayValue = 50 + rand() % 20; // Randomized noise for texture
+			data[index] = grayValue;   // Red
+			data[index + 1] = grayValue; // Green
+			data[index + 2] = grayValue; // Blue
+		}
+	}
+
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return textureID;
+}
+
+GLuint LoadTextureBMPW(const char* filename) {
+	FILE* file = nullptr;
+
+	// Open the texture file
+	if (fopen_s(&file, filename, "rb") != 0) {
+		printf("Error: Could not open texture file '%s'\n", filename);
+		return 0; // Return 0 to indicate failure
+	}
+
+	// Read BMP Header
+	unsigned char header[54];
+	if (fread(header, sizeof(unsigned char), 54, file) != 54) {
+		printf("Error: Incorrect BMP file format (header too short) in '%s'\n", filename);
+		fclose(file);
+		return 0;
+	}
+
+	// Verify BMP signature
+	if (header[0] != 'B' || header[1] != 'M') {
+		printf("Error: File '%s' is not a valid BMP file\n", filename);
+		fclose(file);
+		return 0;
+	}
+
+	// Extract width, height, and pixel data offset
+	int width = *(int*)&header[18];
+	int height = *(int*)&header[22];
+	int dataOffset = *(int*)&header[10];
+
+	// Calculate image size (assuming 24 bits per pixel)
+	int imageSize = 3 * width * height;
+
+	// Allocate memory for pixel data
+	unsigned char* data = (unsigned char*)malloc(imageSize);
+	if (!data) {
+		printf("Error: Failed to allocate memory for texture '%s'\n", filename);
+		fclose(file);
+		return 0;
+	}
+
+	// Read pixel data
+	fseek(file, dataOffset, SEEK_SET);
+	if (fread(data, sizeof(unsigned char), imageSize, file) != (size_t)imageSize) {
+		printf("Error: Failed to read pixel data from '%s'\n", filename);
+		free(data);
+		fclose(file);
+		return 0;
+	}
+	fclose(file);
+
+	// Convert BGR to RGB
+	for (int i = 0; i < imageSize; i += 3) {
+		unsigned char temp = data[i];
+		data[i] = data[i + 2];
+		data[i + 2] = temp;
+	}
+
+	// Generate OpenGL texture
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	// Set texture parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	// Build mipmaps and load texture
+	gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+
+	// Free the pixel data
+	free(data);
+
+	printf("Successfully loaded texture '%s'\n", filename);
+	return textureID; // Return the texture ID
 }
 
 void initializeRobots() {
@@ -532,7 +695,6 @@ void drawRobotWithBreakingAnimation(const Robot& enemyBot) {
 }
 
 void drawDefensiveCannon() {
-	// If the cannon is fully disabled and fully black, render it as black
 	glPushMatrix();
 
 	// Adjust position based on camera's position and direction
@@ -551,60 +713,90 @@ void drawDefensiveCannon() {
 	glRotatef(-cameraYaw, 0.0, 1.0, 0.0);  // Horizontal alignment
 	glRotatef(cameraPitch, 1.0, 0.0, 0.0); // Vertical alignment
 
-	// Base material: Black if fully disabled
-	GLfloat blackAmbient[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	GLfloat blackDiffuse[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	GLfloat blackSpecular[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
-	GLfloat blackShininess = 0.0f;
-
+	// Texture Binding and Material Setup
 	if (cannonDisabled && cannonFadeProgress >= 1.0f) {
 		// Apply fully black material
+		glDisable(GL_TEXTURE_2D);
+		GLfloat blackAmbient[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		GLfloat blackDiffuse[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		GLfloat blackSpecular[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		GLfloat blackShininess = 0.0f;
+
 		glMaterialfv(GL_FRONT, GL_AMBIENT, blackAmbient);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, blackDiffuse);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, blackSpecular);
 		glMaterialfv(GL_FRONT, GL_SHININESS, &blackShininess);
 	}
 	else {
-		// Transition to black based on fade progress
-		GLfloat currentBaseAmbient[4], currentBaseDiffuse[4], currentBaseSpecular[4];
-		for (int i = 0; i < 4; i++) {
-			currentBaseAmbient[i] = green_mat_ambient[i] * (1.0f - cannonFadeProgress);
-			currentBaseDiffuse[i] = green_mat_diffuse[i] * (1.0f - cannonFadeProgress);
-			currentBaseSpecular[i] = green_mat_specular[i] * (1.0f - cannonFadeProgress);
-		}
-		glMaterialfv(GL_FRONT, GL_AMBIENT, currentBaseAmbient);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, currentBaseDiffuse);
-		glMaterialfv(GL_FRONT, GL_SPECULAR, currentBaseSpecular);
-		glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-	}
-
-	// Draw cannon base (scaled 2x)
-	glPushMatrix();
-	glScalef(6.0, 3.0, 6.0); // Base scaled to twice the original size
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Barrel material
-	if (cannonDisabled && cannonFadeProgress >= 1.0f) {
-		// Apply fully black material for the barrel as well
-		glMaterialfv(GL_FRONT, GL_AMBIENT, blackAmbient);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, blackDiffuse);
-		glMaterialfv(GL_FRONT, GL_SPECULAR, blackSpecular);
-		glMaterialfv(GL_FRONT, GL_SHININESS, &blackShininess);
-	}
-	else {
+		// Apply texture and material for the base
+		glEnable(GL_TEXTURE_2D);
+		glBindTexture(GL_TEXTURE_2D, cannonBaseTexture); // Procedural dark gray texture for the base
 		glMaterialfv(GL_FRONT, GL_AMBIENT, dark_grey_ambient);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
 		glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
 	}
 
-	// Draw cannon barrel (scaled 2x)
+	// Draw cannon base
 	glPushMatrix();
-	glTranslatef(0.0, 1.0, -4.0); // Adjust barrel position to fit the larger base
-	gluCylinder(gluNewQuadric(), 1.0, 1.0, 10.0, 16, 16); // Barrel scaled up
+	glScalef(6.0, 2.0, 6.0); // Base scaled for a robust look
+	glBegin(GL_QUADS);
+	// Front face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+
+	// Back face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, -0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, -0.5);
+
+	// Left face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(-0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, -0.5);
+
+	// Right face
+	glTexCoord2f(0.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(0.5, 0.5, -0.5);
+
+	// Top face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, 0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, 0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+
+	// Bottom face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, -0.5, 0.5);
+	glEnd();
 	glPopMatrix();
 
+	// Draw barrel
+	if (!(cannonDisabled && cannonFadeProgress >= 1.0f)) {
+		glBindTexture(GL_TEXTURE_2D, cannonBarrelTexture); // Procedural metallic texture for the barrel
+		glMaterialfv(GL_FRONT, GL_AMBIENT, robotLowerBody_mat_ambient);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, robotLowerBody_mat_diffuse);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, robotLowerBody_mat_specular);
+		glMaterialfv(GL_FRONT, GL_SHININESS, robotLowerBody_mat_shininess);
+	}
+
+	glPushMatrix();
+	glTranslatef(0.0, 1.0, -4.0); // Adjust barrel position
+	GLUquadric* quad = gluNewQuadric();
+	gluQuadricTexture(quad, GL_TRUE); // Enable texture mapping for the barrel
+	gluCylinder(quad, 1.0, 1.0, 10.0, 16, 16); // Barrel cylinder
+	gluDeleteQuadric(quad);
+	glPopMatrix();
+
+	glDisable(GL_TEXTURE_2D);
 	glPopMatrix();
 }
 
@@ -810,6 +1002,10 @@ void initOpenGL(int w, int h)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
+	// Generate textures for robot and cannon
+	robotTexture = createCheckerboardTexture();
+
+	glEnable(GL_TEXTURE_2D);  // Enable texture mapping
 
 	// Other initializatuion
 	// Set up ground quad mesh
@@ -825,6 +1021,9 @@ void initOpenGL(int w, int h)
 	float shininess = 0.2;
 	groundMesh->SetMaterial(ambient, diffuse, specular, shininess);
 
+	// Create and bind procedural textures
+	cannonBarrelTexture = createMetallicTexture();
+	cannonBaseTexture = createDarkGrayTexture();
 }
 
 void display(void) {
@@ -953,6 +1152,10 @@ void drawBody()
 {
 	// Top Part (Beige, wide)
 	glPushMatrix();
+	// Bind texture for the top part
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, robotTexture);
+
 	// Set material properties for the beige top part
 	glMaterialfv(GL_FRONT, GL_AMBIENT, beige_mat_ambient);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, beige_mat_specular);
@@ -962,8 +1165,50 @@ void drawBody()
 	// Position and scale the top part
 	glTranslatef(0.0, 0.5 * robotBodyLength, 0.0);  // Top part is at the top
 	glScalef(robotBodyWidth, robotBodyLength / 3.0, robotBodyDepth);  // Wide part, 1/3 of total height
-	glutSolidCube(1.0);
+
+	// Draw textured cube
+	glBegin(GL_QUADS);
+
+	// Front face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+
+	// Back face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, -0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, -0.5);
+
+	// Left face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(-0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, -0.5);
+
+	// Right face
+	glTexCoord2f(0.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(0.5, 0.5, -0.5);
+
+	// Top face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, 0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, 0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+
+	// Bottom face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, -0.5, 0.5);
+
+	glEnd();
+
 	glPopMatrix();
+	glDisable(GL_TEXTURE_2D);
 
 	// Middle Part (Black, thin and long)
 	glPushMatrix();
