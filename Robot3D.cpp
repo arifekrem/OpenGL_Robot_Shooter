@@ -67,6 +67,8 @@ bool movingForward = true;
 
 float barrelYawAngle = 0.0f;
 float barrelTiltAngle = 0.0f;
+float firingRate = 200.0f;
+float speedMultiplier = 1.0f;
 
 float cameraX = 0.0f, cameraY = 15.0f, cameraZ = 100.0f;
 float cameraYaw = 0.0f;
@@ -354,7 +356,7 @@ void initializeRobots() {
 	for (int i = 0; i < robotCount; i++) {
 		robots[i].xOffset = (i - (robotCount - 1) * 0.5f) * spacing;
 		robots[i].zOffset = 0.0f;
-		robots[i].speed = 0.1f + 0.05f * i;
+		robots[i].speed = (0.1f + 0.05f * i) * speedMultiplier;
 		robots[i].direction = 0.0f;
 		robots[i].disabled = false;
 		robots[i].breakingTimer = 0;
@@ -364,6 +366,11 @@ void initializeRobots() {
 void resetRobots() {
 	robotCount++;
 	score++;
+
+	// Increase difficulty
+	firingRate = std::max(50.0f, firingRate * 0.9f); // Decrease firing interval (min: 50ms)
+	speedMultiplier += 0.1f; // Increase movement speed by 10% each level
+
 	initializeRobots();
 }
 
@@ -490,7 +497,7 @@ void fireRandomEnemyProjectiles(int value) {
 		}
 	}
 
-	glutTimerFunc(200, fireRandomEnemyProjectiles, 0); // Lower interval to 200ms
+	glutTimerFunc(static_cast<int>(firingRate), fireRandomEnemyProjectiles, 0); // Use scaling firing rate on new levels
 }
 
 void updateEnemyProjectiles(int value) {
