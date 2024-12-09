@@ -13,17 +13,12 @@
 #include <string>
 #include <sstream>
 #define M_PI 3.14159265358979323846
-#include <wchar.h>
-#include <iostream>
-#include <cstdio>
 
 GLuint robotTexture, cannonBaseTexture, cannonBarrelTexture;
 
-const int vWidth = 650;    // Viewport width in pixels
-const int vHeight = 500;    // Viewport height in pixels
+const int vWidth = 650;
+const int vHeight = 500;
 
-// Note how everything depends on robot body dimensions so that can scale entire robot proportionately
-// just by changing robot body scale
 float robotBodyWidth = 12.0;
 float robotBodyLength = 10.0;
 float robotBodyDepth = 8.0;
@@ -39,52 +34,48 @@ float stanchionLength = robotBodyLength;
 float stanchionRadius = 0.1 * robotBodyDepth;
 float baseWidth = 1.5 * robotBodyWidth;
 float baseLength = 0.4 * stanchionLength;
-float legAngle = 0.0f;        // Controls the angle of the leg during stepping
-bool spinCannon = false;      // Flag to control cannon spinning
-float cannonSpinAngle = 0.0f; // Angle for cannon spinning
+float legAngle = 0.0f;
+bool spinCannon = true;
+float cannonSpinAngle = 0.0f;
 
 // Joint angles for walking
-float hipAngleLeft = 0.0f;  // Angle for left hip joint
-float kneeAngleLeft = 0.0f; // Angle for left knee joint
-float ankleAngleLeft = 0.0f; // Angle for left ankle joint
-float hipAngleRight = 0.0f;  // Angle for right hip joint
-float kneeAngleRight = 0.0f; // Angle for right knee joint
-float ankleAngleRight = 0.0f; // Angle for right ankle joint
-float lowerLegAngleLeft = 0.0f;  // Angle for rotating lower part of the left leg
-float lowerLegAngleRight = 0.0f; // Angle for rotating lower part of the right leg
+float hipAngleLeft = 0.0f;
+float kneeAngleLeft = 0.0f;
+float ankleAngleLeft = 0.0f;
+float hipAngleRight = 0.0f;
+float kneeAngleRight = 0.0f;
+float ankleAngleRight = 0.0f;
+float lowerLegAngleLeft = 0.0f;
+float lowerLegAngleRight = 0.0f;
 
 // Flag to control walking state
 bool walking = false;
-bool stepBackwards = false;  // Controls whether the leg is stepping forward or backward
-bool walkingForward = true;   // Track whether we're walking forward
-int selectedJoint = 0; // 0 for none, 1 for knee, 2 for hip, 3 for body
-int cameraView = 0; // 0 = default, 1 = front, 2 = side, 3 = top-down
+bool stepBackwards = false;
+bool walkingForward = true;
 
 // Control Robot body rotation on base
 float robotAngle = 0.0;
-float neckAngle = 0.0f;   // Neck rotation
+float neckAngle = 0.0f;
 
 // Control arm rotation
 float shoulderAngle = -40.0;
 float gunAngle = -25.0;
 
 // Variable to control the position offset along the direction of movement
-float robotZOffset = 0.0f; // Movement offset along the z-axis
-bool movingForward = true; // Flag to control movement direction
+float robotZOffset = 0.0f;
+bool movingForward = true;
 
-float barrelYawAngle = 0.0f;  // Rotation left/right
-float barrelTiltAngle = 0.0f; // Tilt up/down
+float barrelYawAngle = 0.0f;
+float barrelTiltAngle = 0.0f;
 
-float cameraX = 0.0f, cameraY = 15.0f, cameraZ = 100.0f; // Initial camera position
-float cameraYaw = 0.0f;   // Horizontal rotation
-float cameraPitch = 0.0f; // Vertical rotation
-float cameraDistance = 100.0f; // Distance from the target (cannon)
-bool cannonDisabled = false; // Initially, the cannon is enabled
-float cannonFadeProgress = 0.0f;      // Progress of the cannon fade to black (0.0 to 1.0)
-float cannonColor[4] = { 0.0f, 1.0f, 0.0f, 1.0f }; // Initial green RGBA for the cannon
+float cameraX = 0.0f, cameraY = 15.0f, cameraZ = 100.0f;
+float cameraYaw = 0.0f;
+float cameraPitch = 0.0f;
+float cameraDistance = 100.0f;
+bool cannonDisabled = false;
+float cannonFadeProgress = 0.0f;
+float cannonColor[4] = { 0.0f, 1.0f, 0.0f, 1.0f };
 
-// Lighting/shading and material properties for robot - upcoming lecture - just copy for now
-// Robot RGBA material properties (NOTE: we will learn about this later in the semester)
 GLfloat robotBody_mat_ambient[] = { 0.0f,0.0f,0.0f,1.0f };
 GLfloat robotBody_mat_specular[] = { 0.45f,0.55f,0.45f,1.0f };
 GLfloat robotBody_mat_diffuse[] = { 0.8f, 0.7f, 0.5f, 1.0f };
@@ -125,7 +116,7 @@ GLfloat red_orange_diffuse[] = { 0.9f, 0.3f, 0.1f, 1.0f };
 GLfloat red_orange_specular[] = { 0.8f, 0.2f, 0.1f, 1.0f };
 GLfloat red_orange_shininess[] = { 32.0F };
 
-// Light properties
+// Texture mapping enemy robot light properties
 GLfloat light_position0[] = { -4.0F, 8.0F, 8.0F, 1.0F };
 GLfloat light_position1[] = { 4.0F, 8.0F, 8.0F, 1.0F };
 GLfloat light_diffuse[] = { 1.0, 1.0, 1.0, 1.0 };
@@ -167,16 +158,16 @@ struct Robot {
 };
 
 struct Projectile {
-	float x, y, z;     // Position
-	float speed;       // Speed of the projectile
-	float directionX, directionY, directionZ; // Direction vector
-	bool active;       // Is the projectile currently active?
+	float x, y, z;
+	float speed;
+	float directionX, directionY, directionZ;
+	bool active;
 };
 
-const int maxProjectiles = 10; // Max number of projectiles
+const int maxProjectiles = 10;
 Projectile projectiles[maxProjectiles];
 
-std::vector<Projectile> defensiveProjectiles; // For defensive cannon projectiles
+std::vector<Projectile> defensiveProjectiles;
 
 float spacing = 20.0f;
 Robot* robots = nullptr;
@@ -184,13 +175,11 @@ Robot* robots = nullptr;
 // Default Mesh Size
 int meshSize = 16;
 
-// Prototypes for functions in this module
 void initOpenGL(int w, int h);
 void display(void);
 void reshape(int w, int h);
 void handleMouseMotion(int x, int y);
 void keyboard(unsigned char key, int x, int y);
-void functionKeys(int key, int x, int y);
 void animationHandler(int param);
 void drawRobot();
 void drawBody();
@@ -219,6 +208,7 @@ void updateCannonFade(int value);
 void resetRobots();
 void cleanupRobots();
 void resetApplication();
+void cannonAnimation(int value);
 bool gameDisabled = false;
 GLuint createEnemyRobotTexture();
 GLuint createMetallicTexture();
@@ -245,15 +235,15 @@ int main(int argc, char** argv)
 	glutReshapeFunc(reshape);
 	glutPassiveMotionFunc(handleMouseMotion);
 	glutKeyboardFunc(keyboard);
-	glutSpecialFunc(functionKeys);
 
 	// Start movement animations
-	walking = true;  // Start walking animation automatically
-	glutTimerFunc(16, moveRobots, 0);  // Start robot movement animation
-	glutTimerFunc(10, stepAnimation, 0);  // Start walking animation
-	glutTimerFunc(16, updateEnemyProjectiles, 0);  // Start updating all projectiles
+	walking = true;
+	glutTimerFunc(16, moveRobots, 0);
+	glutTimerFunc(10, stepAnimation, 0);
+	glutTimerFunc(16, updateEnemyProjectiles, 0);
 	glutTimerFunc(16, updateDefensiveProjectilesTimer, 0);
 	glutTimerFunc(500, fireRandomEnemyProjectiles, 0);
+	glutTimerFunc(10, cannonAnimation, 0);
 
 	// Start event loop, never returns
 	glutMainLoop();
@@ -263,28 +253,27 @@ int main(int argc, char** argv)
 }
 
 GLuint createEnemyRobotTexture() {
-	const int textureSize = 512; // Define a 512x512 texture
+	const int textureSize = 512; // 512x512 texture
 	GLuint textureID;
 	unsigned char* textureData = new unsigned char[textureSize * textureSize * 3];
 
-	// Generate procedural pattern: light gray with darker panel-like divisions
+	// Generate procedural pattern, light gray with darker panel-like divisions
 	for (int y = 0; y < textureSize; y++) {
 		for (int x = 0; x < textureSize; x++) {
 			int index = (y * textureSize + x) * 3;
 
-			// Base light gray color
 			unsigned char baseColor = 200;
 
-			// Add panel effect: darker lines every 32 pixels
+			// Panel effect, darker lines every 32 pixels
 			if ((x % 32 == 0 || y % 32 == 0)) {
 				baseColor = 160; // Panel line color
 			}
 
-			// Add subtle random noise for realism
+			// Subtle random noise for realism
 			unsigned char noise = rand() % 10;
-			textureData[index] = baseColor - noise; // Red channel
-			textureData[index + 1] = baseColor - noise; // Green channel
-			textureData[index + 2] = baseColor - noise; // Blue channel
+			textureData[index] = baseColor - noise;
+			textureData[index + 1] = baseColor - noise;
+			textureData[index + 2] = baseColor - noise;
 		}
 	}
 
@@ -310,10 +299,10 @@ GLuint createMetallicTexture() {
 	for (int i = 0; i < width; ++i) {
 		for (int j = 0; j < height; ++j) {
 			int index = (i + j * width) * 3;
-			unsigned char grayValue = (i + j) % 128 + 100; // Smooth gradient with metallic sheen
-			data[index] = grayValue;   // Red
-			data[index + 1] = grayValue; // Green
-			data[index + 2] = grayValue; // Blue
+			unsigned char grayValue = (i + j) % 128 + 100;
+			data[index] = grayValue;
+			data[index + 1] = grayValue;
+			data[index + 2] = grayValue;
 		}
 	}
 
@@ -336,10 +325,10 @@ GLuint createDarkGrayTexture() {
 	for (int i = 0; i < width; ++i) {
 		for (int j = 0; j < height; ++j) {
 			int index = (i + j * width) * 3;
-			unsigned char grayValue = 50 + rand() % 20; // Randomized noise for texture
-			data[index] = grayValue;   // Red
-			data[index + 1] = grayValue; // Green
-			data[index + 2] = grayValue; // Blue
+			unsigned char grayValue = 50 + rand() % 20;
+			data[index] = grayValue;
+			data[index + 1] = grayValue;
+			data[index + 2] = grayValue;
 		}
 	}
 
@@ -355,111 +344,30 @@ GLuint createDarkGrayTexture() {
 	return textureID;
 }
 
-GLuint LoadTextureBMPW(const char* filename) {
-	FILE* file = nullptr;
-
-	// Open the texture file
-	if (fopen_s(&file, filename, "rb") != 0) {
-		printf("Error: Could not open texture file '%s'\n", filename);
-		return 0; // Return 0 to indicate failure
-	}
-
-	// Read BMP Header
-	unsigned char header[54];
-	if (fread(header, sizeof(unsigned char), 54, file) != 54) {
-		printf("Error: Incorrect BMP file format (header too short) in '%s'\n", filename);
-		fclose(file);
-		return 0;
-	}
-
-	// Verify BMP signature
-	if (header[0] != 'B' || header[1] != 'M') {
-		printf("Error: File '%s' is not a valid BMP file\n", filename);
-		fclose(file);
-		return 0;
-	}
-
-	// Extract width, height, and pixel data offset
-	int width = *(int*)&header[18];
-	int height = *(int*)&header[22];
-	int dataOffset = *(int*)&header[10];
-
-	// Calculate image size (assuming 24 bits per pixel)
-	int imageSize = 3 * width * height;
-
-	// Allocate memory for pixel data
-	unsigned char* data = (unsigned char*)malloc(imageSize);
-	if (!data) {
-		printf("Error: Failed to allocate memory for texture '%s'\n", filename);
-		fclose(file);
-		return 0;
-	}
-
-	// Read pixel data
-	fseek(file, dataOffset, SEEK_SET);
-	if (fread(data, sizeof(unsigned char), imageSize, file) != (size_t)imageSize) {
-		printf("Error: Failed to read pixel data from '%s'\n", filename);
-		free(data);
-		fclose(file);
-		return 0;
-	}
-	fclose(file);
-
-	// Convert BGR to RGB
-	for (int i = 0; i < imageSize; i += 3) {
-		unsigned char temp = data[i];
-		data[i] = data[i + 2];
-		data[i + 2] = temp;
-	}
-
-	// Generate OpenGL texture
-	GLuint textureID;
-	glGenTextures(1, &textureID);
-	glBindTexture(GL_TEXTURE_2D, textureID);
-
-	// Set texture parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	// Build mipmaps and load texture
-	gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
-
-	// Free the pixel data
-	free(data);
-
-	printf("Successfully loaded texture '%s'\n", filename);
-	return textureID; // Return the texture ID
-}
-
 void initializeRobots() {
-	// Deallocate existing robot array if necessary
 	if (robots != nullptr) {
 		delete[] robots;
 	}
 
-	// Allocate memory for the new number of robots
 	robots = new Robot[robotCount];
 
 	for (int i = 0; i < robotCount; i++) {
-		robots[i].xOffset = (i - (robotCount - 1) * 0.5f) * spacing; // Space them evenly along x-axis
-		robots[i].zOffset = 0.0f;                                   // Start at the same z-axis position
-		robots[i].speed = 0.1f + 0.05f * i;                         // Slightly different speeds
-		robots[i].direction = 0.0f;                                 // All initially walking straight
-		robots[i].disabled = false;                                 // Not disabled initially
-		robots[i].breakingTimer = 0;                                // No animation initially
+		robots[i].xOffset = (i - (robotCount - 1) * 0.5f) * spacing;
+		robots[i].zOffset = 0.0f;
+		robots[i].speed = 0.1f + 0.05f * i;
+		robots[i].direction = 0.0f;
+		robots[i].disabled = false;
+		robots[i].breakingTimer = 0;
 	}
 }
 
 void resetRobots() {
-	robotCount++;          // Increase the number of robots
-	score++;               // Increment the score
-	initializeRobots();    // Reinitialize the robots with the updated count
+	robotCount++;
+	score++;
+	initializeRobots();
 }
 
 void cleanupRobots() {
-	// Clean up dynamically allocated robot memory
 	if (robots != nullptr) {
 		delete[] robots;
 		robots = nullptr;
@@ -467,10 +375,7 @@ void cleanupRobots() {
 }
 
 void resetApplication() {
-	// Reset the score
 	score = 0;
-
-	// Reset the number of robots
 	robotCount = 3;
 
 	// Reset the defensive cannon
@@ -484,17 +389,13 @@ void resetApplication() {
 	// Reinitialize robots and projectiles
 	initializeRobots();
 	initializeEnemyProjectiles();
-
-	// Clear defensive projectiles
 	defensiveProjectiles.clear();
-
-	// Trigger a redraw to reflect the reset state
 	glutPostRedisplay();
 }
 
 void initializeEnemyProjectiles() {
 	for (int i = 0; i < maxProjectiles; i++) {
-		projectiles[i].active = false; // Initially, all projectiles are inactive
+		projectiles[i].active = false;
 	}
 }
 
@@ -508,11 +409,11 @@ void fireEnemyProjectile(float startX, float startY, float startZ, float camDirX
 
 			// Add slight random inaccuracy to the camera direction
 			float inaccuracy = 0.1f; // Degree of inaccuracy
-			float dirX = camDirX + (rand() % 100 / 500.0f - inaccuracy); // Random offset
+			float dirX = camDirX + (rand() % 100 / 500.0f - inaccuracy);
 			float dirY = camDirY + (rand() % 100 / 500.0f - inaccuracy);
 			float dirZ = camDirZ + (rand() % 100 / 500.0f - inaccuracy);
 
-			// Negate the direction to ensure the projectiles move towards the front view camera
+			// Negate the direction to ensure the projectiles move towards defensive cannon
 			dirX = -dirX;
 			dirY = -dirY;
 			dirZ = -dirZ;
@@ -540,8 +441,8 @@ void fireEnemyProjectile(float startX, float startY, float startZ, float camDirX
 }
 
 bool detectDefensiveLaserCollisionWithBot(const Projectile& defensiveLaser, const Robot& enemyBot) {
-	float botRadius = robotBodyWidth * 0.5f; // Approximate robot as a circle
-	float laserRadius = 0.5f; // Approximate laser size
+	float botRadius = robotBodyWidth * 0.5f;
+	float laserRadius = 0.5f;
 
 	float dx = defensiveLaser.x - enemyBot.xOffset;
 	float dz = defensiveLaser.z - enemyBot.zOffset;
@@ -556,19 +457,15 @@ VECTOR3D getCannonWorldPosition(Robot robot) {
 	float baseX = robot.xOffset;
 	float baseZ = robot.zOffset;
 
-	// Body rotation
 	float bodyRotationRad = robotAngle * (M_PI / 180.0f);
 
-	// Cannon's position relative to the body
 	float cannonLocalX = -(0.5 * robotBodyWidth + gunWidth);
 	float cannonLocalY = 0.3 * robotBodyLength;
 	float cannonLocalZ = 0.5 * robotBodyDepth;
 
-	// Apply body rotation
 	float cannonRotatedX = cannonLocalX * cos(bodyRotationRad) - cannonLocalZ * sin(bodyRotationRad);
 	float cannonRotatedZ = cannonLocalX * sin(bodyRotationRad) + cannonLocalZ * cos(bodyRotationRad);
 
-	// Compute world position
 	float cannonWorldX = baseX + cannonRotatedX;
 	float cannonWorldY = cannonLocalY;
 	float cannonWorldZ = baseZ + cannonRotatedZ;
@@ -581,7 +478,7 @@ void fireRandomEnemyProjectiles(int value) {
 
 	for (int i = 0; i < robotCount; i++) {
 		if (robots[i].disabled) {
-			continue; // Skip disabled robots
+			continue;
 		}
 
 		if (rand() % 100 < 50) { // Increase chance to fire from 20% to 50%
@@ -605,12 +502,12 @@ void updateEnemyProjectiles(int value) {
 
 			// Check collision with the defensive cannon
 			if (!cannonDisabled &&
-				fabs(projectiles[i].x - cameraX) < 4.0f &&   // X-axis collision range
-				fabs(projectiles[i].y - (cameraY - 5.0f)) < 2.0f && // Y-axis collision range
-				fabs(projectiles[i].z - (cameraZ - 10.0f)) < 2.0f) { // Z-axis collision range
+				fabs(projectiles[i].x - cameraX) < 4.0f &&
+				fabs(projectiles[i].y - (cameraY - 5.0f)) < 2.0f &&
+				fabs(projectiles[i].z - (cameraZ - 10.0f)) < 2.0f) {
 				cannonDisabled = true;  // Disable cannon
-				glutTimerFunc(16, updateCannonFade, 0); // Start fading animation
-				projectiles[i].active = false; // Deactivate the projectile
+				glutTimerFunc(16, updateCannonFade, 0); // Disabled animation (fade to black)
+				projectiles[i].active = false;
 			}
 
 			// Deactivate if projectile goes out of bounds
@@ -626,9 +523,9 @@ void updateEnemyProjectiles(int value) {
 }
 
 void updateDefensiveProjectilesTimer(int value) {
-	updateDefensiveProjectiles();  // Update positions of defensive projectiles
-	glutPostRedisplay();           // Trigger a redraw
-	glutTimerFunc(16, updateDefensiveProjectilesTimer, 0);  // Schedule the next update
+	updateDefensiveProjectiles();
+	glutPostRedisplay();
+	glutTimerFunc(16, updateDefensiveProjectilesTimer, 0);
 }
 
 void drawEnemyProjectiles() {
@@ -659,7 +556,7 @@ void drawEnemyProjectiles() {
 			// Define an up vector and calculate the right vector
 			VECTOR3D up(0.0f, 1.0f, 0.0f);
 			if (fabs(direction.x) < 1e-6 && fabs(direction.z) < 1e-6) {
-				up = VECTOR3D(1.0f, 0.0f, 0.0f); // Prevent degenerate up vector
+				up = VECTOR3D(1.0f, 0.0f, 0.0f);
 			}
 			VECTOR3D right = cross(up, direction);
 			right = normalize(right);
@@ -682,9 +579,9 @@ void drawEnemyProjectiles() {
 			glMaterialfv(GL_FRONT, GL_SPECULAR, red_orange_specular);
 			glMaterialfv(GL_FRONT, GL_SHININESS, red_orange_shininess);
 
-			// Draw the projectile as a cylinder
+			// Draw the projectile
 			GLUquadric* quad = gluNewQuadric();
-			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16); // Thin, elongated cylinder
+			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16);
 			gluDeleteQuadric(quad);
 
 			glPopMatrix();
@@ -701,9 +598,9 @@ void drawRobotWithBreakingAnimation(const Robot& enemyBot) {
 		// Breaking animation: Shrink the bot over time
 		glPushMatrix();
 		glTranslatef(enemyBot.xOffset, 0.0f, enemyBot.zOffset);
-		float scale = enemyBot.breakingTimer / 50.0f; // Shrink over time
+		float scale = enemyBot.breakingTimer / 50.0f;
 		glScalef(scale, scale, scale);
-		drawRobot(); // Draw robot body in reduced size
+		drawRobot();
 		glPopMatrix();
 		return;
 	}
@@ -719,20 +616,20 @@ void drawDefensiveCannon() {
 	glPushMatrix();
 
 	// Adjust position based on camera's position and direction
-	float cannonOffsetDistance = 10.0f; // Distance in front of the camera
+	float cannonOffsetDistance = 10.0f;
 	float offsetX = sin(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
 	float offsetY = sin(cameraPitch * M_PI / 180.0);
 	float offsetZ = -cos(cameraYaw * M_PI / 180.0) * cos(cameraPitch * M_PI / 180.0);
 
 	float cannonX = cameraX + offsetX * cannonOffsetDistance;
-	float cannonY = cameraY + offsetY * cannonOffsetDistance - 5.0f; // Slightly lower than the camera
+	float cannonY = cameraY + offsetY * cannonOffsetDistance - 5.0f;
 	float cannonZ = cameraZ + offsetZ * cannonOffsetDistance;
 
 	glTranslatef(cannonX, cannonY, cannonZ);
 
 	// Align the cannon with the camera's orientation
-	glRotatef(-cameraYaw, 0.0, 1.0, 0.0);  // Horizontal alignment
-	glRotatef(cameraPitch, 1.0, 0.0, 0.0); // Vertical alignment
+	glRotatef(-cameraYaw, 0.0, 1.0, 0.0);
+	glRotatef(cameraPitch, 1.0, 0.0, 0.0);
 
 	// Texture Binding and Material Setup
 	if (cannonDisabled && cannonFadeProgress >= 1.0f) {
@@ -751,7 +648,7 @@ void drawDefensiveCannon() {
 	else {
 		// Apply texture and material for the base
 		glEnable(GL_TEXTURE_2D);
-		glBindTexture(GL_TEXTURE_2D, cannonBaseTexture); // Procedural dark gray texture for the base
+		glBindTexture(GL_TEXTURE_2D, cannonBaseTexture); // Dark gray texture mapping for the base
 		glMaterialfv(GL_FRONT, GL_AMBIENT, dark_grey_ambient);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
@@ -760,7 +657,7 @@ void drawDefensiveCannon() {
 
 	// Draw cannon base
 	glPushMatrix();
-	glScalef(6.0, 2.0, 6.0); // Base scaled for a robust look
+	glScalef(6.0, 2.0, 6.0);
 	glBegin(GL_QUADS);
 	// Front face
 	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, 0.5);
@@ -802,7 +699,7 @@ void drawDefensiveCannon() {
 
 	// Draw barrel
 	if (!(cannonDisabled && cannonFadeProgress >= 1.0f)) {
-		glBindTexture(GL_TEXTURE_2D, cannonBarrelTexture); // Procedural metallic texture for the barrel
+		glBindTexture(GL_TEXTURE_2D, cannonBarrelTexture); // Metallic texture mapping for the barrel
 		glMaterialfv(GL_FRONT, GL_AMBIENT, robotLowerBody_mat_ambient);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, robotLowerBody_mat_diffuse);
 		glMaterialfv(GL_FRONT, GL_SPECULAR, robotLowerBody_mat_specular);
@@ -810,10 +707,10 @@ void drawDefensiveCannon() {
 	}
 
 	glPushMatrix();
-	glTranslatef(0.0, 1.0, -4.0); // Adjust barrel position
+	glTranslatef(0.0, 1.0, -4.0);
 	GLUquadric* quad = gluNewQuadric();
 	gluQuadricTexture(quad, GL_TRUE); // Enable texture mapping for the barrel
-	gluCylinder(quad, 1.0, 1.0, 10.0, 16, 16); // Barrel cylinder
+	gluCylinder(quad, 1.0, 1.0, 10.0, 16, 16);
 	gluDeleteQuadric(quad);
 	glPopMatrix();
 
@@ -822,10 +719,10 @@ void drawDefensiveCannon() {
 }
 
 void fireDefensiveCannonProjectile() {
-	if (cannonDisabled) return; // Skip if the cannon is disabled
+	if (cannonDisabled) return;
 
 	// Calculate cannon position
-	float cannonOffsetDistance = 10.0f; // Distance in front of the camera
+	float cannonOffsetDistance = 10.0f;
 	float offsetX = sin(cameraYaw * M_PI / 180.0f) * cos(cameraPitch * M_PI / 180.0f);
 	float offsetY = sin(cameraPitch * M_PI / 180.0f);
 	float offsetZ = -cos(cameraYaw * M_PI / 180.0f) * cos(cameraPitch * M_PI / 180.0f);
@@ -858,7 +755,7 @@ void fireDefensiveCannonProjectile() {
 	newProjectile.speed = 3.0f; // Speed of the projectile
 	newProjectile.active = true;
 
-	defensiveProjectiles.push_back(newProjectile); // Add projectile to list
+	defensiveProjectiles.push_back(newProjectile);
 }
 
 void updateDefensiveProjectiles() {
@@ -870,14 +767,14 @@ void updateDefensiveProjectiles() {
 			defensiveProjectiles[i].z += defensiveProjectiles[i].directionZ * defensiveProjectiles[i].speed;
 
 			// Check for collisions with enemy robots
-			for (int j = 0; j < robotCount; j++) { // Loop through all robots
+			for (int j = 0; j < robotCount; j++) {
 				if (!robots[j].disabled &&
 					detectDefensiveLaserCollisionWithBot(defensiveProjectiles[i], robots[j])) {
 					// Handle collision
-					robots[j].disabled = true; // Disable the robot
-					robots[j].breakingTimer = 50; // Trigger breaking animation
-					defensiveProjectiles[i].active = false; // Deactivate projectile
-					break; // Handle only one collision per projectile
+					robots[j].disabled = true;
+					robots[j].breakingTimer = 50;
+					defensiveProjectiles[i].active = false;
+					break;
 				}
 			}
 
@@ -925,7 +822,7 @@ void drawDefensiveProjectiles() {
 			// Define an up vector and calculate the right vector
 			VECTOR3D up(0.0f, 1.0f, 0.0f);
 			if (fabs(direction.x) < 1e-6 && fabs(direction.z) < 1e-6) {
-				up = VECTOR3D(1.0f, 0.0f, 0.0f); // Prevent degenerate up vector
+				up = VECTOR3D(1.0f, 0.0f, 0.0f);
 			}
 			VECTOR3D right = cross(up, direction);
 			right = normalize(right);
@@ -950,7 +847,7 @@ void drawDefensiveProjectiles() {
 
 			// Draw the projectile as a neon green cylinder
 			GLUquadric* quad = gluNewQuadric();
-			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16); // Thin, elongated cylinder
+			gluCylinder(quad, 0.1f, 0.1f, 3.0f, 16, 16);
 			gluDeleteQuadric(quad);
 
 			glPopMatrix();
@@ -962,12 +859,12 @@ void checkCannonHit() {
 	for (int i = 0; i < maxProjectiles; i++) {
 		if (projectiles[i].active) {
 			// Adjust collision bounds for the larger cannon
-			if (fabs(projectiles[i].x - cameraX) < 4.0f &&   // X-axis range doubled
-				fabs(projectiles[i].y - (cameraY - 5.0f)) < 2.0f && // Y-axis range doubled
-				fabs(projectiles[i].z - (cameraZ - 10.0f)) < 2.0f) { // Z-axis range doubled
-				cannonDisabled = true;  // Disable cannon
-				glutTimerFunc(16, updateCannonFade, 0); // Start fading animation
-				projectiles[i].active = false; // Deactivate the projectile
+			if (fabs(projectiles[i].x - cameraX) < 4.0f &&
+				fabs(projectiles[i].y - (cameraY - 5.0f)) < 2.0f &&
+				fabs(projectiles[i].z - (cameraZ - 10.0f)) < 2.0f) {
+				cannonDisabled = true;
+				glutTimerFunc(16, updateCannonFade, 0);
+				projectiles[i].active = false;
 			}
 		}
 	}
@@ -976,20 +873,20 @@ void checkCannonHit() {
 void updateCannonFade(int value) {
 	if (cannonDisabled && cannonFadeProgress < 1.0f) {
 		// Increment fade progress
-		cannonFadeProgress += 0.01f; // Adjust for slower or faster fading
+		cannonFadeProgress += 0.01f;
 
 		// Interpolate RGBA values to fade to black
 		for (int i = 0; i < 3; i++) {
 			cannonColor[i] = (1.0f - cannonFadeProgress) * green_mat_diffuse[i];
 		}
-		cannonColor[3] = 1.0f; // Maintain full opacity
+		cannonColor[3] = 1.0f;
 
 		glutPostRedisplay();
 		glutTimerFunc(16, updateCannonFade, 0); // Call this function every 16ms (60 FPS)
 	}
 	else if (cannonDisabled && cannonFadeProgress >= 1.0f) {
 		// If the cannon is fully faded to black, mark the game as disabled
-		gameDisabled = true; // New variable to track game disabled state
+		gameDisabled = true;
 		glutPostRedisplay();
 	}
 }
@@ -1010,28 +907,27 @@ void initOpenGL(int w, int h)
 
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
-	glEnable(GL_LIGHT1);   // This second light is currently off
+	glEnable(GL_LIGHT1);
 
 	// Other OpenGL setup
-	glEnable(GL_DEPTH_TEST);   // Remove hidded surfaces
-	glShadeModel(GL_SMOOTH);   // Use smooth shading, makes boundaries between polygons harder to see
-	glClearColor(0.4F, 0.4F, 0.4F, 0.0F);  // Color and depth for glClear
+	glEnable(GL_DEPTH_TEST);
+	glShadeModel(GL_SMOOTH);
+	glClearColor(0.4F, 0.4F, 0.4F, 0.0F);
 	glClearDepth(1.0f);
 	glEnable(GL_NORMALIZE);    // Renormalize normal vectors
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);   // Nicer perspective
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
 	glEnable(GL_TEXTURE_2D);  // Enable texture mapping
 
-	// Other initializatuion
 	// Set up ground quad mesh
-	VECTOR3D origin = VECTOR3D(-160.0f, 0.0f, 160.0f); // Expand origin to match 10x scale
+	VECTOR3D origin = VECTOR3D(-160.0f, 0.0f, 160.0f);
 	VECTOR3D dir1v = VECTOR3D(1.0f, 0.0f, 0.0f);
 	VECTOR3D dir2v = VECTOR3D(0.0f, 0.0f, -1.0f);
-	groundMesh = new QuadMesh(meshSize, 3200.0); // Update mesh size to 3200.0 for 10x scale
-	groundMesh->InitMesh(meshSize, origin, 3200.0, 3200.0, dir1v, dir2v); // 10x larger dimensions
+	groundMesh = new QuadMesh(meshSize, 3200.0);
+	groundMesh->InitMesh(meshSize, origin, 3200.0, 3200.0, dir1v, dir2v);
 
 	VECTOR3D ambient = VECTOR3D(0.0f, 0.05f, 0.0f);
 	VECTOR3D diffuse = VECTOR3D(0.4f, 0.8f, 0.4f);
@@ -1042,6 +938,7 @@ void initOpenGL(int w, int h)
 	// Create and bind procedural textures
 	cannonBarrelTexture = createMetallicTexture();
 	cannonBaseTexture = createDarkGrayTexture();
+
 	// Generate textures for robot and cannon
 	robotTexture = createEnemyRobotTexture();
 }
@@ -1065,18 +962,18 @@ void display(void) {
 	// Check if the cannon is hit and start fading animation if necessary
 	checkCannonHit();
 	if (cannonDisabled && cannonFadeProgress < 1.0f) {
-		glutTimerFunc(16, updateCannonFade, 0); // Start fading animation
+		glutTimerFunc(16, updateCannonFade, 0);
 	}
 
 	// Draw robots
 	for (int i = 0; i < robotCount; i++) {
 		if (robots[i].disabled) {
-			drawRobotWithBreakingAnimation(robots[i]); // Draw breaking animation for disabled robots
+			drawRobotWithBreakingAnimation(robots[i]);
 		}
 		else {
 			glPushMatrix();
 			glTranslatef(robots[i].xOffset, 0.0, robots[i].zOffset);
-			drawRobot(); // Draw active robots normally
+			drawRobot();
 			glPopMatrix();
 		}
 	}
@@ -1092,7 +989,7 @@ void display(void) {
 
 	// Draw ground mesh
 	glPushMatrix();
-	glTranslatef(0.0, -25.0, 0.0); // Lower the ground slightly
+	glTranslatef(0.0, -25.0, 0.0);
 	groundMesh->DrawMesh(meshSize);
 	glPopMatrix();
 
@@ -1101,10 +998,10 @@ void display(void) {
 	glMatrixMode(GL_PROJECTION);
 	glPushMatrix();
 	glLoadIdentity();
-	gluOrtho2D(0, vWidth, 0, vHeight); // Set orthographic projection for 2D text
+	gluOrtho2D(0, vWidth, 0, vHeight);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
-	glColor3f(1.0f, 1.0f, 1.0f); // Set text color to white
+	glColor3f(1.0f, 1.0f, 1.0f);
 
 	glRasterPos2f(vWidth - 100, vHeight - 30);
 	std::ostringstream scoreStream;
@@ -1128,7 +1025,7 @@ void display(void) {
 		gluOrtho2D(0, vWidth, 0, vHeight);
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
-		glColor3f(1.0f, 0.0f, 0.0f); // Red text
+		glColor3f(1.0f, 0.0f, 0.0f);
 
 		std::string resetMessage = "Press R to Reset";
 		glRasterPos2f(vWidth / 2 - 100, vHeight / 2);
@@ -1148,24 +1045,24 @@ void display(void) {
 
 void drawRobot()
 {
-	// 1. Draw the lower body (green part and legs) separately with no rotation
-	glPushMatrix();  // Save current matrix state
-	drawLowerBody();  // Draw the lower body first without any transformations
-	glPopMatrix();  // Restore the matrix
+	// 1. Draw the lower body separately with no rotation
+	glPushMatrix();
+	drawLowerBody();
+	glPopMatrix();
 
 	// 2. Draw the upper body with rotation
-	glPushMatrix();  // Save current matrix state
+	glPushMatrix();
 
 	// Rotate only the upper body parts
-	glRotatef(robotAngle, 0.0, 1.0, 0.0);  // Apply rotation for the upper body
+	glRotatef(robotAngle, 0.0, 1.0, 0.0);
 
 	// Draw the upper body components: torso, head, arms
-	drawBody();      // Beige, black parts (upper torso)
-	drawHead();      // Head
-	drawLeftArm();   // Left arm
-	drawRightArm();  // Right arm
+	drawBody();
+	drawHead();
+	drawLeftArm();
+	drawRightArm();
 
-	glPopMatrix();  // End upper body rotation, restore the matrix
+	glPopMatrix();
 }
 
 void drawBody() {
@@ -1231,7 +1128,7 @@ void drawBody() {
 	// Middle Part (Light gray with panel-like texture)
 	glPushMatrix();
 	glEnable(GL_TEXTURE_2D);
-	glBindTexture(GL_TEXTURE_2D, robotTexture); // Bind the new procedurally generated texture
+	glBindTexture(GL_TEXTURE_2D, robotTexture);
 
 	// Set material properties for the middle part
 	glMaterialfv(GL_FRONT, GL_AMBIENT, light_grey_ambient);
@@ -1270,8 +1167,8 @@ void drawHead()
 
 	glPushMatrix();
 	// Apply neck rotation
-	glRotatef(neckAngle, 0.0, 1.0, 0.0);  // Rotate neck along Y-axis
-	glTranslatef(0, 0.5 * robotBodyLength + 1.0 * headLength, 0); // Move head above the body
+	glRotatef(neckAngle, 0.0, 1.0, 0.0);
+	glTranslatef(0, 0.5 * robotBodyLength + 1.0 * headLength, 0);
 
 	// Draw the head (white part)
 	glPushMatrix();
@@ -1291,14 +1188,14 @@ void drawHead()
 
 	// Draw left side of the head
 	glPushMatrix();
-	glTranslatef(-0.2 * robotBodyWidth, 0, 0);  // Move to left
+	glTranslatef(-0.2 * robotBodyWidth, 0, 0);
 	glScalef(0.01 * robotBodyWidth, 0.4 * robotBodyWidth, 0.4 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
 	// Draw right side of the head
 	glPushMatrix();
-	glTranslatef(0.2 * robotBodyWidth, 0, 0);  // Move to right
+	glTranslatef(0.2 * robotBodyWidth, 0, 0);
 	glScalef(0.01 * robotBodyWidth, 0.4 * robotBodyWidth, 0.4 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
@@ -1311,15 +1208,15 @@ void drawHead()
 
 	// Move the front grey part very slightly down
 	glPushMatrix();
-	glTranslatef(0.0, 0.06 * robotBodyWidth, 0.20 * robotBodyWidth);  // Very slight downward adjustment
-	glScalef(0.12 * robotBodyWidth, 0.3 * robotBodyWidth, 0.03 * robotBodyWidth);  // Taller and wider
+	glTranslatef(0.0, 0.06 * robotBodyWidth, 0.20 * robotBodyWidth);
+	glScalef(0.12 * robotBodyWidth, 0.3 * robotBodyWidth, 0.03 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
 	// Add grey part to the top of the head
 	glPushMatrix();
-	glTranslatef(0.0, 0.2 * robotBodyWidth, 0.01 * robotBodyWidth);  // Small forward adjustment
-	glScalef(0.12 * robotBodyWidth, 0.02 * robotBodyWidth, 0.42 * robotBodyWidth);  // Long and thin grey stripe on top
+	glTranslatef(0.0, 0.2 * robotBodyWidth, 0.01 * robotBodyWidth);
+	glScalef(0.12 * robotBodyWidth, 0.02 * robotBodyWidth, 0.42 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
@@ -1331,12 +1228,12 @@ void drawHead()
 	glMaterialfv(GL_FRONT, GL_SHININESS, cyan_shininess);
 
 	// Position the blue visor/eye on the front
-	glTranslatef(0.0, 0.1 * robotBodyWidth, 0.22 * robotBodyWidth);  // Position it on the front
-	glScalef(0.05 * robotBodyWidth, 0.2 * robotBodyWidth, 0.02 * robotBodyWidth);  // Flip dimensions to make it upright
-	glutSolidCube(1.0); // Blue eye
+	glTranslatef(0.0, 0.1 * robotBodyWidth, 0.22 * robotBodyWidth);
+	glScalef(0.05 * robotBodyWidth, 0.2 * robotBodyWidth, 0.02 * robotBodyWidth);
+	glutSolidCube(1.0);
 	glPopMatrix();
 
-	glPopMatrix();  // End head drawing
+	glPopMatrix();
 }
 
 void drawLowerBody() {
@@ -1359,8 +1256,8 @@ void drawLowerBody() {
 
 	// Left leg
 	glPushMatrix();
-	glTranslatef(0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0); // Adjust leg height
-	glRotatef(hipAngleLeft, 1.0, 0.0, 0.0); // Rotate hip joint
+	glTranslatef(0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0);
+	glRotatef(hipAngleLeft, 1.0, 0.0, 0.0);
 
 	// Upper left leg
 	glPushMatrix();
@@ -1370,7 +1267,7 @@ void drawLowerBody() {
 
 	// Kneecap
 	glPushMatrix();
-	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth); // Adjust kneecap position
+	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth);
 	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);
 	glutSolidCube(1.0);
 	glPopMatrix();
@@ -1426,8 +1323,8 @@ void drawLowerBody() {
 
 	// Right leg
 	glPushMatrix();
-	glTranslatef(-0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0); // Adjust leg height
-	glRotatef(hipAngleRight, 1.0, 0.0, 0.0); // Rotate hip joint
+	glTranslatef(-0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0);
+	glRotatef(hipAngleRight, 1.0, 0.0, 0.0);
 
 	// Upper right leg
 	glPushMatrix();
@@ -1489,7 +1386,7 @@ void drawLowerBody() {
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	glPopMatrix(); // End right leg
+	glPopMatrix();
 
 	glDisable(GL_TEXTURE_2D);
 }
@@ -1504,11 +1401,11 @@ void drawLeftArm()
 
 	glPushMatrix();
 	// Position upper arm higher to connect with the body
-	glTranslatef(0.5 * robotBodyWidth + 0.5 * upperArmWidth, 0.3 * robotBodyLength, 0.0); // Adjusted Y position to connect with body
+	glTranslatef(0.5 * robotBodyWidth + 0.5 * upperArmWidth, 0.3 * robotBodyLength, 0.0);
 
 	// Draw upper arm (green part)
 	glPushMatrix();
-	glScalef(upperArmWidth, 0.6 * upperArmLength, upperArmWidth); // Upper part is shorter
+	glScalef(upperArmWidth, 0.6 * upperArmLength, upperArmWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
@@ -1520,25 +1417,25 @@ void drawLeftArm()
 	glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
 
 	// Position and scale the elbow
-	glTranslatef(0.0, -0.5 * 0.6 * upperArmLength, 0.0); // Adjust based on upper arm length
-	glScalef(1.2 * upperArmWidth, 0.1 * upperArmLength, 1.2 * upperArmWidth); // Slightly larger elbow joint
-	glutSolidCube(1.0);  // Draw elbow
+	glTranslatef(0.0, -0.5 * 0.6 * upperArmLength, 0.0);
+	glScalef(1.2 * upperArmWidth, 0.1 * upperArmLength, 1.2 * upperArmWidth);
+	glutSolidCube(1.0);
 	glPopMatrix();
 
 	// Move down for the lower arm and translate further forward along Z-axis
-	glTranslatef(0.0, -0.9 * 0.6 * upperArmLength, 1.1); // Slightly increased forward translation along the Z-axis
+	glTranslatef(0.0, -0.9 * 0.6 * upperArmLength, 1.1);
 
 	// Apply rotation to the lower arm for an angled effect
-	glRotatef(-30.0, 1.0, 0.0, 0.0); // Rotate around the X-axis to make the lower arm angled
+	glRotatef(-30.0, 1.0, 0.0, 0.0);
 
 	// Draw lower arm (green part)
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);  // Set back to green for the lower arm
+	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
 	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
 
-	glScalef(upperArmWidth, 0.6 * upperArmLength, upperArmWidth); // Lower part is also shorter
+	glScalef(upperArmWidth, 0.6 * upperArmLength, upperArmWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
@@ -1550,25 +1447,25 @@ void drawLeftArm()
 
 	// Position the hand slightly above and more inside the lower arm
 	glPushMatrix();
-	glTranslatef(0.0, -0.35 * 0.6 * upperArmLength - 0.15, 0.0);  // Adjusted Y position to bring the hand inside the lower arm
-	glScalef(0.7 * upperArmWidth, 0.5 * upperArmLength, 0.7 * upperArmWidth);  // Scale for the hand
-	glutSolidCube(1.0);  // Hand (palm)
+	glTranslatef(0.0, -0.35 * 0.6 * upperArmLength - 0.15, 0.0);
+	glScalef(0.7 * upperArmWidth, 0.5 * upperArmLength, 0.7 * upperArmWidth);
+	glutSolidCube(1.0);
 
 	// Add the fingers
-	float fingerWidth = 0.06 * upperArmWidth; // Thicker fingers
-	float fingerLength = 0.05 * upperArmLength; // Shorter length for fingers
+	float fingerWidth = 0.06 * upperArmWidth;
+	float fingerLength = 0.05 * upperArmLength;
 
 	// Draw 5 fingers
 	for (int i = -2; i <= 2; i++) {
 		glPushMatrix();
-		glTranslatef(i * (0.12 * upperArmWidth), -0.2 * (0.3 * upperArmLength), 0.0);  // Move fingers up
-		glScalef(fingerWidth, fingerLength, fingerWidth);  // Scale fingers to thicker and shorter size
+		glTranslatef(i * (0.12 * upperArmWidth), -0.2 * (0.3 * upperArmLength), 0.0);
+		glScalef(fingerWidth, fingerLength, fingerWidth);
 		glutSolidCube(1.0);
 		glPopMatrix();
 	}
 
-	glPopMatrix();  // End of hand
-	glPopMatrix();  // End of arm
+	glPopMatrix();
+	glPopMatrix();
 }
 
 void drawRightArm()
@@ -1583,13 +1480,13 @@ void drawRightArm()
 	glPushMatrix();
 
 	// Adjust translation to mirror the left arm, move it up and forward slightly
-	glTranslatef(-(0.5 * robotBodyWidth + 0.5 * upperArmWidth), 0.3 * robotBodyLength, 0.2 * robotBodyDepth); // Adjust Y-value for correct height
+	glTranslatef(-(0.5 * robotBodyWidth + 0.5 * upperArmWidth), 0.3 * robotBodyLength, 0.2 * robotBodyDepth);
 
-	glRotatef(-45.0, 1.0, 0.0, 0.0); // Tilt arm forward
+	glRotatef(-45.0, 1.0, 0.0, 0.0);
 
 	// Draw upper arm (green part)
 	glPushMatrix();
-	glScalef(upperArmWidth, 0.6 * upperArmLength, upperArmWidth); // Upper part is shorter
+	glScalef(upperArmWidth, 0.6 * upperArmLength, upperArmWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
@@ -1601,25 +1498,25 @@ void drawRightArm()
 	glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
 
 	// Position and scale the elbow
-	glTranslatef(0.0, -0.5 * 0.6 * upperArmLength, 0.0); // Position the elbow under the upper arm
-	glScalef(1.2 * upperArmWidth, 0.1 * upperArmLength, 1.2 * upperArmWidth); // Slightly larger elbow joint
-	glutSolidCube(1.0);  // Draw elbow
+	glTranslatef(0.0, -0.5 * 0.6 * upperArmLength, 0.0);
+	glScalef(1.2 * upperArmWidth, 0.1 * upperArmLength, 1.2 * upperArmWidth);
+	glutSolidCube(1.0);
 	glPopMatrix();
 
 	// Move down for the lower arm, starting from the elbow
-	glTranslatef(0.0, -0.75 * 0.8 * upperArmLength, 1.3); // Move the lower arm further forward along Z-axis
+	glTranslatef(0.0, -0.75 * 0.8 * upperArmLength, 1.3);
 
 	// Apply rotation to the lower arm for an angled effect
-	glRotatef(-25.0, 1.0, 0.0, 0.0); // Rotate around the X-axis for angle
+	glRotatef(-25.0, 1.0, 0.0, 0.0);
 
 	// Draw lower arm (green part)
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);  // Set back to green for the lower arm
+	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
 	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
 
-	glScalef(upperArmWidth, 0.7 * upperArmLength, upperArmWidth); // Same size of the lower arm
+	glScalef(upperArmWidth, 0.7 * upperArmLength, upperArmWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
@@ -1631,25 +1528,25 @@ void drawRightArm()
 
 	// Position the cannon at the end of the lower arm
 	glPushMatrix();
-	glTranslatef(0.0, -0.4 * upperArmLength - 0.4 * gunLength, 0.0);  // Position cannon directly at the lower arm's end
+	glTranslatef(0.0, -0.4 * upperArmLength - 0.4 * gunLength, 0.0);
 
 	// Apply cannon spin along its Y-axis (screw-like spin)
 	if (spinCannon) {
-		glRotatef(cannonSpinAngle, 0.0, 1.0, 0.0);  // Spin along the Y-axis
+		glRotatef(cannonSpinAngle, 0.0, 1.0, 0.0);
 	}
 
 	// Draw the gun (cannon body)
 	glPushMatrix();
 	glScalef(gunWidth, gunLength, gunDepth);
-	glutSolidCube(1.0);  // Cannon body
+	glutSolidCube(1.0);
 	glPopMatrix();
 
 	// Draw the cannon barrel (cylinder)
 	glPushMatrix();
-	glTranslatef(0.0, -0.5 * gunLength, 0.0);  // Move to the end of the cannon
-	glRotatef(90.0, 1.0, 0.0, 0.0);  // Align the cylinder properly
+	glTranslatef(0.0, -0.5 * gunLength, 0.0);
+	glRotatef(90.0, 1.0, 0.0, 0.0);
 	GLUquadric* quad = gluNewQuadric();
-	gluCylinder(quad, 1.5, 1.5, 5.0, 40, 20);  // Barrel
+	gluCylinder(quad, 1.5, 1.5, 5.0, 40, 20);
 	glPopMatrix();
 
 	// Draw the orange projectile inside the cannon
@@ -1658,20 +1555,20 @@ void drawRightArm()
 	glMaterialfv(GL_FRONT, GL_DIFFUSE, red_orange_diffuse);
 	glMaterialfv(GL_FRONT, GL_SPECULAR, red_orange_specular);
 	glMaterialfv(GL_FRONT, GL_SHININESS, red_orange_shininess);
-	glTranslatef(0.0, -2.5 * gunLength, 0.0);  // Inside the cannon
+	glTranslatef(0.0, -2.5 * gunLength, 0.0);
 	glScalef(gunWidth * 0.5, gunLength * 0.1, gunDepth * 0.5);
-	glutSolidCube(1.0);  // The orange projectile
+	glutSolidCube(1.0);
 	glPopMatrix();
 
 	// Draw the magazine under the cannon
 	glPushMatrix();
-	glTranslatef(0.0, -gunLength - 1.0, 0.0);  // Position magazine below the cannon
-	glScalef(gunWidth * 0.8, gunLength * 0.4, gunDepth * 0.8);  // Scale the magazine
+	glTranslatef(0.0, -gunLength - 1.0, 0.0);
+	glScalef(gunWidth * 0.8, gunLength * 0.4, gunDepth * 0.8);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	glPopMatrix();  // End cannon drawing
-	glPopMatrix();  // End arm drawing
+	glPopMatrix();
+	glPopMatrix();
 }
 
 void reshape(int w, int h)
@@ -1685,7 +1582,6 @@ void reshape(int w, int h)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	// Set up the camera at position (0, 6, 35) looking at the origin
 	gluLookAt(0.0, 6.0, 35.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 }
 
@@ -1695,14 +1591,14 @@ void moveRobots(int value) {
 	for (int i = 0; i < robotCount; i++) {
 		if (robots[i].disabled) {
 			if (robots[i].breakingTimer > 0) {
-				robots[i].breakingTimer--; // Count down breaking animation timer
+				robots[i].breakingTimer--;
 			}
 			else {
-				robots[i].xOffset = 1000.0f; // Move robot far off-screen
-				robots[i].zOffset = 1000.0f; // Prevent further interaction
+				robots[i].xOffset = 1000.0f;
+				robots[i].zOffset = 1000.0f;
 			}
-			disabledCount++; // Count disabled robots
-			continue; // Skip further processing for disabled robots
+			disabledCount++;
+			continue;
 		}
 
 		float rad = robots[i].direction * (M_PI / 180.0f);
@@ -1795,12 +1691,12 @@ void cannonAnimation(int value)
 {
 	if (spinCannon)
 	{
-		cannonSpinAngle += 5.0f;  // Increment the cannon spin angle to rotate the cannon
+		cannonSpinAngle += 5.0f;
 		if (cannonSpinAngle > 360.0f) {
-			cannonSpinAngle -= 360.0f;  // Reset the angle after a full rotation
+			cannonSpinAngle -= 360.0f;
 		}
-		glutPostRedisplay();  // Redraw to show the updated cannon position
-		glutTimerFunc(10, cannonAnimation, 0);  // Continue spinning the cannon
+		glutPostRedisplay();
+		glutTimerFunc(10, cannonAnimation, 0);
 	}
 }
 
@@ -1820,59 +1716,13 @@ void keyboard(unsigned char key, int x, int y)
 {
 	switch (key)
 	{
-	case ' ':  // Spacebar pressed
-		fireDefensiveCannonProjectile(); // Fire defensive projectile
+	case ' ':  // Spacebar to fire projectile
+		fireDefensiveCannonProjectile();
 		break;
-	case 'k':  // Control left knee
-		selectedJoint = 1;  // Select knee joint
-		break;
-	case 'h':  // Control left hip
-		selectedJoint = 2;  // Select hip joint
-		break;
-	case 'n':  // Control neck (head rotation)
-		selectedJoint = 3;
-		break;
-	case 'b':  // Select body rotation
-		selectedJoint = 4;
-		break;
-	case 'l':  // Control lower part of the left leg (between middle and lower sections)
-		selectedJoint = 5;
-		break;
-	case 'a': // Control ankle
-		selectedJoint = 6;
-		break;
-	case '1':  // Default view (isometric)
-		cameraView = 0;
-		break;
-	case '2':  // Front view
-		cameraView = 1;
-		break;
-	case '3':  // Side view
-		cameraView = 2;
-		break;
-	case '4':  // Top-down view
-		cameraView = 3;
-		break;
-	case 'w':  // Start/Stop walking
-		walking = !walking;
-		if (walking) {
-			glutTimerFunc(10, stepAnimation, 0);  // Start walking animation
-		}
-		else {
-			resetJointAngles();  // Reset joint angles when walking stops
-			glutPostRedisplay(); // Trigger a redraw to reflect the reset angles
-		}
-		break;
-	case 'c':  // Toggle cannon spinning
-		spinCannon = !spinCannon;
-		if (spinCannon) {
-			glutTimerFunc(10, cannonAnimation, 0);
-		}
-		break;
-	case 'r': // Reset the game
+	case 'r': // "R" key to reset the game
 		if (gameDisabled) {
-			gameDisabled = false; // Exit the disabled state
-			resetApplication();  // Reset the game state
+			gameDisabled = false;
+			resetApplication();
 		}
 		break;
 	default:
@@ -1891,130 +1741,11 @@ void animationHandler(int param)
 	}
 }
 
-void functionKeys(int key, int x, int y)
-{
-	switch (key)
-	{
-	case GLUT_KEY_LEFT:
-		// Control right knee when 'k' is pressed
-		if (selectedJoint == 1) {
-			kneeAngleRight += 2.0f;  // Rotate right knee
-		}
-		// Control right hip when 'h' is pressed
-		else if (selectedJoint == 2) {
-			hipAngleRight += 2.0f;   // Rotate right hip
-		}
-		// Control neck
-		else if (selectedJoint == 3) {
-			neckAngle += 2.0f;     // Rotate neck (left turn)
-		}
-		// Control body rotation
-		else if (selectedJoint == 4) {
-			robotAngle += 2.0f;    // Rotate body (left)
-			if (robotAngle > 360.0f) {
-				robotAngle -= 360.0f;
-			}
-		}
-		// Rotate lower left leg
-		else if (selectedJoint == 5) {
-			lowerLegAngleLeft += 2.0f;  // Rotate lower left leg
-		}
-		// Rotate ankle
-		else if (selectedJoint == 6) {
-			ankleAngleLeft += 2.0f;
-		}
-		break;
-
-	case GLUT_KEY_RIGHT:
-		// Control right knee when 'k' is pressed
-		if (selectedJoint == 1) {
-			kneeAngleRight -= 2.0f;  // Rotate right knee in the opposite direction
-		}
-		// Control right hip when 'h' is pressed
-		else if (selectedJoint == 2) {
-			hipAngleRight -= 2.0f;   // Rotate right hip in the opposite direction
-		}
-		// Control neck
-		else if (selectedJoint == 3) {
-			neckAngle -= 2.0f;     // Rotate neck (right turn)
-		}
-		// Control body rotation
-		else if (selectedJoint == 4) {
-			robotAngle -= 2.0f;    // Rotate body (right)
-			if (robotAngle < -360.0f) {
-				robotAngle += 360.0f;
-			}
-		}
-		// Rotate lower left leg in opposite direction
-		else if (selectedJoint == 5) {
-			lowerLegAngleLeft -= 2.0f;  // Rotate lower left leg in the opposite direction
-		}
-		// Rotate ankle
-		else if (selectedJoint == 6) {
-			ankleAngleLeft -= 2.0f;
-		}
-		break;
-
-	case GLUT_KEY_UP:
-		// Control left knee when 'k' is pressed
-		if (selectedJoint == 1) {
-			kneeAngleLeft += 2.0f;  // Rotate left knee
-		}
-		// Control left hip when 'h' is pressed
-		else if (selectedJoint == 2) {
-			hipAngleLeft += 2.0f;   // Rotate left hip
-		}
-		// Control neck
-		else if (selectedJoint == 3) {
-			neckAngle += 2.0f;     // Rotate neck (upward turn - simulating look up)
-		}
-		else if (selectedJoint == 4) {
-			robotAngle += 2.0f;    // Optional: You can add more functionality for the body here
-		}
-		// Rotate lower left leg in opposite direction
-		else if (selectedJoint == 5) {
-			lowerLegAngleLeft += 2.0f;  // Rotate lower left leg in the opposite direction
-		}
-		// Rotate ankle
-		else if (selectedJoint == 6) {
-			ankleAngleLeft += 2.0f;
-		}
-		break;
-
-	case GLUT_KEY_DOWN:
-		// Control left knee when 'k' is pressed
-		if (selectedJoint == 1) {
-			kneeAngleLeft -= 2.0f;  // Rotate left knee in the opposite direction
-		}
-		// Control left hip when 'h' is pressed
-		else if (selectedJoint == 2) {
-			hipAngleLeft -= 2.0f;   // Rotate left hip in the opposite direction
-		}
-		// Control neck
-		else if (selectedJoint == 3) {
-			neckAngle -= 2.0f;     // Rotate neck (downward turn - simulating look down)
-		}
-		else if (selectedJoint == 4) {
-			robotAngle -= 2.0f;    // Optional: You can add more functionality for the body here
-		}
-		// Rotate lower left leg
-		else if (selectedJoint == 5) {
-			lowerLegAngleLeft -= 2.0f;  // Rotate lower left leg
-		}
-		// Rotate ankle
-		else if (selectedJoint == 6) {
-			ankleAngleLeft -= 2.0f;
-		}
-		break;
-	}
-	glutPostRedisplay();   // Trigger redraw to apply changes
-}
-
 void handleMouseMotion(int x, int y) {
 	static int lastX = x, lastY = y;
 
 	// Adjust yaw (horizontal) and pitch (vertical) based on mouse movement
-	float sensitivity = 0.1f; // Increase this value to make the mouse movement more sensitive
+	float sensitivity = 0.1f;
 	float deltaX = (x - lastX) * sensitivity;
 	float deltaY = (y - lastY) * sensitivity;
 
@@ -2022,17 +1753,17 @@ void handleMouseMotion(int x, int y) {
 	cameraPitch -= deltaY;
 
 	// Adjust the range of cameraYaw to allow further left/right movement
-	const float maxYaw = 180.0f; // Increase to allow even more left/right rotation
+	const float maxYaw = 180.0f;
 	if (cameraYaw > maxYaw) cameraYaw = maxYaw;
 	if (cameraYaw < -maxYaw) cameraYaw = -maxYaw;
 
 	// Clamp the pitch to avoid excessive tilt
-	const float maxPitch = 45.0f; // Maximum degrees to look up or down
+	const float maxPitch = 45.0f;
 	if (cameraPitch > maxPitch) cameraPitch = maxPitch;
 	if (cameraPitch < -maxPitch) cameraPitch = -maxPitch;
 
 	// Sync cannon's barrel angles with camera's orientation
-	barrelYawAngle = -cameraYaw; // Reverse direction for intuitive alignment
+	barrelYawAngle = -cameraYaw;
 	barrelTiltAngle = cameraPitch;
 
 	// Save current mouse position
