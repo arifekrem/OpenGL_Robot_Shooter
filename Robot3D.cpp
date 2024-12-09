@@ -293,12 +293,10 @@ GLuint createEnemyRobotTexture() {
 	glBindTexture(GL_TEXTURE_2D, textureID);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureSize, textureSize, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
 
-	// Set texture parameters
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, textureSize, textureSize, GL_RGB, GL_UNSIGNED_BYTE, textureData);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	// Free memory and return texture ID
 	delete[] textureData;
@@ -1025,9 +1023,6 @@ void initOpenGL(int w, int h)
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	// Generate textures for robot and cannon
-	robotTexture = createEnemyRobotTexture();
-
 	glEnable(GL_TEXTURE_2D);  // Enable texture mapping
 
 	// Other initializatuion
@@ -1047,6 +1042,8 @@ void initOpenGL(int w, int h)
 	// Create and bind procedural textures
 	cannonBarrelTexture = createMetallicTexture();
 	cannonBaseTexture = createDarkGrayTexture();
+	// Generate textures for robot and cannon
+	robotTexture = createEnemyRobotTexture();
 }
 
 void display(void) {
@@ -1342,286 +1339,159 @@ void drawHead()
 	glPopMatrix();  // End head drawing
 }
 
-void drawLowerBody()
-{
-	// Lower body green section (stationary part)
+void drawLowerBody() {
+	// Lower body section
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, robotTexture);
 
-	// Position the green section (between the legs) under the upper body but not affected by rotation
-	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);  // Move to where the green section is positioned
-	glScalef(0.8 * robotBodyWidth, robotBodyLength / 3.0, 0.8 * robotBodyDepth);  // Scale to match the body proportions
-	glutSolidCube(1.0);  // Draw the green section (stationary)
+	// Set material properties for the lower body
+	glMaterialfv(GL_FRONT, GL_AMBIENT, light_grey_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, light_grey_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_grey_diffuse);
+	glMaterialf(GL_FRONT, GL_SHININESS, light_grey_shininess);
+
+	// Position the lower body (stationary part under the main body)
+	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
+	glScalef(0.8 * robotBodyWidth, robotBodyLength / 3.0, 0.8 * robotBodyDepth);
+	glutSolidCube(1.0);
 	glPopMatrix();
 
 	// Left leg
 	glPushMatrix();
-	// Move the leg lower to connect better to the body
 	glTranslatef(0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0); // Adjust leg height
-
-	// Hip rotation for walking
 	glRotatef(hipAngleLeft, 1.0, 0.0, 0.0); // Rotate hip joint
 
-	// Upper leg segment - beige
+	// Upper left leg
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, beige_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, beige_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, beige_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, beige_mat_shininess);
-
-	// Rotate and scale the upper leg
-	glRotatef(-15, 1.0, 0.0, 0.0); // Slight rotation for a zig-zag pose
 	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
 	glutSolidCube(1.0);
-	glPopMatrix(); // End upper leg segment
-
-	// Add kneecap before moving down for the lower leg
-	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, light_brown_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, light_brown_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_brown_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, light_brown_mat_shininess);
-
-	// Adjust kneecap placement (slightly forward on the Z-axis)
-	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth);  // Move kneecap forward slightly
-	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);  // Scale the kneecap
-	glutSolidCube(1.0);  // Draw kneecap
 	glPopMatrix();
 
-	// Move down for knee joint
-	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	// Knee rotation
-	glRotatef(kneeAngleLeft, 1.0, 0.0, 0.0); // Rotate knee
-
-	// Lower leg segment - green
+	// Kneecap
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-
-	glRotatef(15, 1.0, 0.0, 0.0); // Rotate to maintain zig-zag pose
-	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix(); // End lower leg segment
-
-	// New kneecap between the two green parts
-	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, light_brown_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, light_brown_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_brown_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, light_brown_mat_shininess);
-
-	// Translate to position the kneecap between the two green parts
-	glTranslatef(0.0, -0.25 * robotBodyLength, 0.0); // Adjust based on the spacing between the two green parts
+	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth); // Adjust kneecap position
 	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Move down for the second (third part) green leg
+	// Lower left leg
 	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	// Lower leg rotation
-	glRotatef(lowerLegAngleLeft, 1.0, 0.0, 0.0);
-
-	// Second green part - same size as the previous green part
+	glRotatef(kneeAngleLeft, 1.0, 0.0, 0.0);
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-
-	glRotatef(-15, 1.0, 0.0, 0.0); // Continue zig-zag pose
 	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
 	glutSolidCube(1.0);
-	glPopMatrix(); // End second green part
+	glPopMatrix();
 
-	// Move down for ankle (adjusted to move feet up)
-	glTranslatef(0.0, -0.3 * robotBodyLength, 0.0);  // Reduced from -0.5 to -0.3 for closer connection
+	// Ankle
+	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
+	glRotatef(ankleAngleLeft, 1.0, 0.0, 0.0);
 
-	// Ankle rotation
-	glRotatef(ankleAngleLeft, 1.0, 0.0, 0.0); // Rotate ankle
-
-	// Foot segment - light brown
+	// Foot
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, light_brown_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, light_brown_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_brown_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, light_brown_mat_shininess);
-
-	// Foot base
-	glPushMatrix();
-	glScalef(0.4 * robotBodyDepth, 0.1 * robotBodyLength, 0.6 * robotBodyWidth); // Foot dimensions
-	glutSolidCube(1.0);
-	glPopMatrix(); // End foot base
-
-	// Add two dents in front of the foot
-	// First front dent
-	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth); // Move to the front-left
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glScalef(0.4 * robotBodyDepth, 0.1 * robotBodyLength, 0.6 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Second front dent
+	// Foot dents
+	// Front left dent
 	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth); // Move to the front-right
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glTranslatef(-0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Add two dents in back of the foot
-	// First back dent
+	// Front right dent
 	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth); // Move to the back-left
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glTranslatef(0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Second back dent
+	// Back left dent
 	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth); // Move to the back-right
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glTranslatef(-0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	glPopMatrix(); // End left foot
+	// Back right dent
+	glPushMatrix();
+	glTranslatef(0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
+	glutSolidCube(1.0);
+	glPopMatrix();
 
 	glPopMatrix(); // End left leg
 
-	// Right leg (copy of the left leg but mirrored)
+	// Right leg
 	glPushMatrix();
-	// Move the leg lower to connect better to the body
 	glTranslatef(-0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0); // Adjust leg height
+	glRotatef(hipAngleRight, 1.0, 0.0, 0.0); // Rotate hip joint
 
-	// Hip rotation
-	glRotatef(hipAngleRight, 1.0, 0.0, 0.0); // Rotate hip
-
-	// Upper leg segment - beige
+	// Upper right leg
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, beige_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, beige_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, beige_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, beige_mat_shininess);
-
-	glRotatef(-15, 1.0, 0.0, 0.0); // Zig-zag pose
 	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix(); // End upper leg segment
-
-	// Add kneecap
-	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, light_brown_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, light_brown_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_brown_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, light_brown_mat_shininess);
-
-	// Adjust kneecap placement
-	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth);  // Move kneecap forward
-	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);  // Adjust kneecap scale
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Move down for knee
-	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	// Knee rotation
-	glRotatef(kneeAngleRight, 1.0, 0.0, 0.0); // Rotate knee
-
-	// Lower leg segment - green
+	// Kneecap
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-
-	glRotatef(15, 1.0, 0.0, 0.0); // Zig-zag rotation
-	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix(); // End lower leg segment
-
-	// New kneecap between the two green parts (right leg)
-	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, light_brown_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, light_brown_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_brown_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, light_brown_mat_shininess);
-
-	glTranslatef(0.0, -0.25 * robotBodyLength, 0.0); // Adjust for kneecap position
+	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth);
 	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Move down for the second green part (right leg)
+	// Lower right leg
 	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	// Lower leg rotation
-	glRotatef(lowerLegAngleRight, 1.0, 0.0, 0.0);
-
-	// Second green part (right leg)
+	glRotatef(kneeAngleRight, 1.0, 0.0, 0.0);
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, green_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, green_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, green_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, green_mat_shininess);
-
-	glRotatef(-15, 1.0, 0.0, 0.0); // Continue zig-zag pose
 	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
 	glutSolidCube(1.0);
-	glPopMatrix(); // End second green part
+	glPopMatrix();
 
-	// Move down for ankle (adjusted to move feet up)
-	glTranslatef(0.0, -0.3 * robotBodyLength, 0.0);  // Reduced from -0.5 to -0.3 for closer connection
+	// Ankle
+	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
+	glRotatef(ankleAngleRight, 1.0, 0.0, 0.0);
 
-	// Ankle rotation
-	glRotatef(ankleAngleRight, 1.0, 0.0, 0.0); // Rotate ankle
-
-	// Foot segment - light brown
+	// Foot
 	glPushMatrix();
-	glMaterialfv(GL_FRONT, GL_AMBIENT, light_brown_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, light_brown_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_brown_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, light_brown_mat_shininess);
-
-	// Foot base
-	glPushMatrix();
-	glScalef(0.4 * robotBodyDepth, 0.1 * robotBodyLength, 0.6 * robotBodyWidth); // Foot dimensions
-	glutSolidCube(1.0);
-	glPopMatrix(); // End foot base
-
-	// Add two dents in front of the foot
-	// First front dent
-	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth); // Move to the front-left
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glScalef(0.4 * robotBodyDepth, 0.1 * robotBodyLength, 0.6 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Second front dent
+	// Foot dents
+	// Front left dent
 	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth); // Move to the front-right
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glTranslatef(-0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Add two dents in back of the foot
-	// First back dent
+	// Front right dent
 	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth); // Move to the back-left
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glTranslatef(0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	// Second back dent
+	// Back left dent
 	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth); // Move to the back-right
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth); // Small cube for the dent
+	glTranslatef(-0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
 	glutSolidCube(1.0);
 	glPopMatrix();
 
-	glPopMatrix(); // End right foot
+	// Back right dent
+	glPushMatrix();
+	glTranslatef(0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
+	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
+	glutSolidCube(1.0);
+	glPopMatrix();
 
 	glPopMatrix(); // End right leg
+
+	glDisable(GL_TEXTURE_2D);
 }
 
 void drawLeftArm()
