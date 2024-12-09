@@ -137,6 +137,11 @@ GLfloat neon_green_diffuse[] = { 0.0f, 1.0f, 0.0f, 1.0f };
 GLfloat neon_green_specular[] = { 0.5f, 1.0f, 0.5f, 1.0f };
 GLfloat neon_green_shininess[] = { 100.0f };
 
+GLfloat light_grey_ambient[] = { 0.5f, 0.5f, 0.5f, 1.0f };
+GLfloat light_grey_diffuse[] = { 0.7f, 0.7f, 0.7f, 1.0f };
+GLfloat light_grey_specular[] = { 0.8f, 0.8f, 0.8f, 1.0f };
+GLfloat light_grey_shininess = 50.0f;
+
 // Mouse button
 int currentButton;
 
@@ -215,8 +220,9 @@ void resetRobots();
 void cleanupRobots();
 void resetApplication();
 bool gameDisabled = false;
-GLuint createCheckerboardTexture();
+GLuint createEnemyRobotTexture();
 GLuint createMetallicTexture();
+GLuint createDarkGrayTexture();
 
 int main(int argc, char** argv)
 {
@@ -256,29 +262,46 @@ int main(int argc, char** argv)
 	return 0;
 }
 
-GLuint createCheckerboardTexture() {
-	const int width = 64, height = 64;
-	unsigned char data[width * height * 3];
+GLuint createEnemyRobotTexture() {
+	const int textureSize = 512; // Define a 512x512 texture
+	GLuint textureID;
+	unsigned char* textureData = new unsigned char[textureSize * textureSize * 3];
 
-	for (int i = 0; i < width; ++i) {
-		for (int j = 0; j < height; ++j) {
-			int index = (i + j * width) * 3;
-			bool checker = (i / 8 % 2 == j / 8 % 2);
-			data[index] = checker ? 255 : 0;   // Red
-			data[index + 1] = checker ? 255 : 0; // Green
-			data[index + 2] = checker ? 255 : 0; // Blue
+	// Generate procedural pattern: light gray with darker panel-like divisions
+	for (int y = 0; y < textureSize; y++) {
+		for (int x = 0; x < textureSize; x++) {
+			int index = (y * textureSize + x) * 3;
+
+			// Base light gray color
+			unsigned char baseColor = 200;
+
+			// Add panel effect: darker lines every 32 pixels
+			if ((x % 32 == 0 || y % 32 == 0)) {
+				baseColor = 160; // Panel line color
+			}
+
+			// Add subtle random noise for realism
+			unsigned char noise = rand() % 10;
+			textureData[index] = baseColor - noise; // Red channel
+			textureData[index + 1] = baseColor - noise; // Green channel
+			textureData[index + 2] = baseColor - noise; // Blue channel
 		}
 	}
 
-	GLuint textureID;
+	// Create the OpenGL texture
 	glGenTextures(1, &textureID);
 	glBindTexture(GL_TEXTURE_2D, textureID);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, textureSize, textureSize, 0, GL_RGB, GL_UNSIGNED_BYTE, textureData);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	// Set texture parameters
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	gluBuild2DMipmaps(GL_TEXTURE_2D, GL_RGB, textureSize, textureSize, GL_RGB, GL_UNSIGNED_BYTE, textureData);
 
-	glBindTexture(GL_TEXTURE_2D, 0);
+	// Free memory and return texture ID
+	delete[] textureData;
 	return textureID;
 }
 
@@ -1003,7 +1026,7 @@ void initOpenGL(int w, int h)
 	glLoadIdentity();
 
 	// Generate textures for robot and cannon
-	robotTexture = createCheckerboardTexture();
+	robotTexture = createEnemyRobotTexture();
 
 	glEnable(GL_TEXTURE_2D);  // Enable texture mapping
 
@@ -1148,23 +1171,21 @@ void drawRobot()
 	glPopMatrix();  // End upper body rotation, restore the matrix
 }
 
-void drawBody()
-{
-	// Top Part (Beige, wide)
+void drawBody() {
+	// Top Part (Greyish, wide)
 	glPushMatrix();
-	// Bind texture for the top part
 	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D, robotTexture);
 
-	// Set material properties for the beige top part
-	glMaterialfv(GL_FRONT, GL_AMBIENT, beige_mat_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, beige_mat_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, beige_mat_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, beige_mat_shininess);
+	// Set material properties for the top part
+	glMaterialfv(GL_FRONT, GL_AMBIENT, light_grey_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, light_grey_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_grey_diffuse);
+	glMaterialf(GL_FRONT, GL_SHININESS, light_grey_shininess);
 
 	// Position and scale the top part
-	glTranslatef(0.0, 0.5 * robotBodyLength, 0.0);  // Top part is at the top
-	glScalef(robotBodyWidth, robotBodyLength / 3.0, robotBodyDepth);  // Wide part, 1/3 of total height
+	glTranslatef(0.0, 0.5 * robotBodyLength, 0.0);
+	glScalef(robotBodyWidth, robotBodyLength / 3.0, robotBodyDepth);
 
 	// Draw textured cube
 	glBegin(GL_QUADS);
@@ -1210,21 +1231,26 @@ void drawBody()
 	glPopMatrix();
 	glDisable(GL_TEXTURE_2D);
 
-	// Middle Part (Black, thin and long)
+	// Middle Part (Light gray with panel-like texture)
 	glPushMatrix();
-	// Set material properties for the black middle part
-	glMaterialfv(GL_FRONT, GL_AMBIENT, dark_grey_ambient);
-	glMaterialfv(GL_FRONT, GL_SPECULAR, dark_grey_specular);
-	glMaterialfv(GL_FRONT, GL_DIFFUSE, dark_grey_diffuse);
-	glMaterialfv(GL_FRONT, GL_SHININESS, dark_grey_shininess);
+	glEnable(GL_TEXTURE_2D);
+	glBindTexture(GL_TEXTURE_2D, robotTexture); // Bind the new procedurally generated texture
+
+	// Set material properties for the middle part
+	glMaterialfv(GL_FRONT, GL_AMBIENT, light_grey_ambient);
+	glMaterialfv(GL_FRONT, GL_SPECULAR, light_grey_specular);
+	glMaterialfv(GL_FRONT, GL_DIFFUSE, light_grey_diffuse);
+	glMaterialf(GL_FRONT, GL_SHININESS, light_grey_shininess);
 
 	// Position and scale the middle part
-	glTranslatef(0.0, 0.0, 0.0);  // Middle part stays in the center
-	glScalef(0.4 * robotBodyWidth, robotBodyLength / 2.0, 0.4 * robotBodyDepth);  // Thin and long part
-	glutSolidCube(1.0);
-	glPopMatrix();
+	glTranslatef(0.0, 0.0, 0.0);
+	glScalef(0.4 * robotBodyWidth, robotBodyLength / 2.0, 0.4 * robotBodyDepth);
 
-	// No longer drawing the green bottom part here; it will now be drawn as part of the lower body.
+	// Draw the textured middle part
+	glutSolidCube(1.0);
+
+	glPopMatrix();
+	glDisable(GL_TEXTURE_2D);
 }
 
 void drawHead()
