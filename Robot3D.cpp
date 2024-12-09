@@ -215,6 +215,7 @@ bool gameDisabled = false;
 GLuint createEnemyRobotTexture();
 GLuint createMetallicTexture();
 GLuint createDarkGrayTexture();
+void drawLegWithDetails(float legX, float legY, float hipAngle, float kneeAngle, float ankleAngle);
 
 int main(int argc, char** argv)
 {
@@ -415,13 +416,13 @@ void fireEnemyProjectile(float startX, float startY, float startZ, float camDirX
 			projectiles[i].z = startZ;
 
 			// Add slight random inaccuracy to the camera direction
-			float inaccuracy = 0.1f; // Degree of inaccuracy
+			float inaccuracy = 0.1f;
 			float dirX = camDirX + (rand() % 100 / 500.0f - inaccuracy);
 			float dirY = camDirY + (rand() % 100 / 500.0f - inaccuracy);
 			float dirZ = camDirZ + (rand() % 100 / 500.0f - inaccuracy);
 
 			// Adjust trajectory slightly upward
-			dirY -= 0.3f; // Fine-tune this value as needed
+			dirY -= 0.3f;
 
 			// Negate the direction to ensure the projectiles move towards defensive cannon
 			dirX = -dirX;
@@ -925,7 +926,7 @@ void initOpenGL(int w, int h)
 	// Other OpenGL setup
 	glEnable(GL_DEPTH_TEST);
 	glShadeModel(GL_SMOOTH);
-	glClearColor(0.4F, 0.4F, 0.4F, 0.0F);
+	glClearColor(0.9f, 0.8f, 0.6f, 1.0f);
 	glClearDepth(1.0f);
 	glEnable(GL_NORMALIZE);    // Renormalize normal vectors
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
@@ -942,10 +943,10 @@ void initOpenGL(int w, int h)
 	groundMesh = new QuadMesh(meshSize, 3200.0);
 	groundMesh->InitMesh(meshSize, origin, 3200.0, 3200.0, dir1v, dir2v);
 
-	VECTOR3D ambient = VECTOR3D(0.0f, 0.05f, 0.0f);
-	VECTOR3D diffuse = VECTOR3D(0.4f, 0.8f, 0.4f);
-	VECTOR3D specular = VECTOR3D(0.04f, 0.04f, 0.04f);
-	float shininess = 0.2;
+	VECTOR3D ambient = VECTOR3D(0.4f, 0.2f, 0.1f);
+	VECTOR3D diffuse = VECTOR3D(0.6f, 0.3f, 0.15f);
+	VECTOR3D specular = VECTOR3D(0.1f, 0.1f, 0.1f);
+	float shininess = 0.2f;
 	groundMesh->SetMaterial(ambient, diffuse, specular, shininess);
 
 	// Create and bind procedural textures
@@ -1264,144 +1265,92 @@ void drawLowerBody() {
 	// Position the lower body (stationary part under the main body)
 	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
 	glScalef(0.8 * robotBodyWidth, robotBodyLength / 3.0, 0.8 * robotBodyDepth);
-	glutSolidCube(1.0);
+
+	// Draw the lower body
+	glBegin(GL_QUADS);
+
+	// Front face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+
+	// Back face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, -0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, -0.5);
+
+	// Left face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(-0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, -0.5);
+
+	// Right face
+	glTexCoord2f(0.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(0.5, 0.5, -0.5);
+
+	// Top face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, 0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, 0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, 0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, 0.5, 0.5);
+
+	// Bottom face
+	glTexCoord2f(0.0, 0.0); glVertex3f(-0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 0.0); glVertex3f(0.5, -0.5, -0.5);
+	glTexCoord2f(1.0, 1.0); glVertex3f(0.5, -0.5, 0.5);
+	glTexCoord2f(0.0, 1.0); glVertex3f(-0.5, -0.5, 0.5);
+
+	glEnd();
 	glPopMatrix();
 
-	// Left leg
-	glPushMatrix();
-	glTranslatef(0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0);
-	glRotatef(hipAngleLeft, 1.0, 0.0, 0.0);
-
-	// Upper left leg
-	glPushMatrix();
-	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Kneecap
-	glPushMatrix();
-	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth);
-	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Lower left leg
-	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	glRotatef(kneeAngleLeft, 1.0, 0.0, 0.0);
-	glPushMatrix();
-	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Ankle
-	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	glRotatef(ankleAngleLeft, 1.0, 0.0, 0.0);
-
-	// Foot
-	glPushMatrix();
-	glScalef(0.4 * robotBodyDepth, 0.1 * robotBodyLength, 0.6 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Foot dents
-	// Front left dent
-	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Front right dent
-	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Back left dent
-	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Back right dent
-	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	glPopMatrix(); // End left leg
-
-	// Right leg
-	glPushMatrix();
-	glTranslatef(-0.5 * robotBodyWidth, -0.7 * robotBodyLength, 0.0);
-	glRotatef(hipAngleRight, 1.0, 0.0, 0.0);
-
-	// Upper right leg
-	glPushMatrix();
-	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Kneecap
-	glPushMatrix();
-	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth);
-	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Lower right leg
-	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	glRotatef(kneeAngleRight, 1.0, 0.0, 0.0);
-	glPushMatrix();
-	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Ankle
-	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
-	glRotatef(ankleAngleRight, 1.0, 0.0, 0.0);
-
-	// Foot
-	glPushMatrix();
-	glScalef(0.4 * robotBodyDepth, 0.1 * robotBodyLength, 0.6 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Foot dents
-	// Front left dent
-	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Front right dent
-	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, 0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Back left dent
-	glPushMatrix();
-	glTranslatef(-0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	// Back right dent
-	glPushMatrix();
-	glTranslatef(0.15 * robotBodyDepth, 0.0, -0.4 * robotBodyWidth);
-	glScalef(0.1 * robotBodyDepth, 0.1 * robotBodyLength, 0.2 * robotBodyWidth);
-	glutSolidCube(1.0);
-	glPopMatrix();
-
-	glPopMatrix();
+	// Draw the legs and details for the lower body
+	drawLegWithDetails(0.5 * robotBodyWidth, -0.7 * robotBodyLength, hipAngleLeft, kneeAngleLeft, ankleAngleLeft);
+	drawLegWithDetails(-0.5 * robotBodyWidth, -0.7 * robotBodyLength, hipAngleRight, kneeAngleRight, ankleAngleRight);
 
 	glDisable(GL_TEXTURE_2D);
+}
+
+void drawLegWithDetails(float legX, float legY, float hipAngle, float kneeAngle, float ankleAngle) {
+	// Position the leg
+	glPushMatrix();
+	glTranslatef(legX, legY, 0.0);
+	glRotatef(hipAngle, 1.0, 0.0, 0.0);
+
+	// Draw upper leg
+	glPushMatrix();
+	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
+	glutSolidCube(1.0);
+	glPopMatrix();
+
+	// Draw kneecap
+	glPushMatrix();
+	glTranslatef(0.0, -0.25 * robotBodyLength, 0.10 * robotBodyDepth);
+	glScalef(0.25 * robotBodyWidth, 0.1 * robotBodyLength, 0.25 * robotBodyDepth);
+	glutSolidCube(1.0);
+	glPopMatrix();
+
+	// Draw lower leg
+	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
+	glRotatef(kneeAngle, 1.0, 0.0, 0.0);
+	glPushMatrix();
+	glScalef(0.2 * robotBodyWidth, 0.5 * robotBodyLength, 0.2 * robotBodyDepth);
+	glutSolidCube(1.0);
+	glPopMatrix();
+
+	// Draw ankle and foot
+	glTranslatef(0.0, -0.5 * robotBodyLength, 0.0);
+	glRotatef(ankleAngle, 1.0, 0.0, 0.0);
+	glPushMatrix();
+	glScalef(0.4 * robotBodyDepth, 0.1 * robotBodyLength, 0.6 * robotBodyWidth);
+	glutSolidCube(1.0);
+	glPopMatrix();
+
+	glPopMatrix();
 }
 
 void drawLeftArm()
